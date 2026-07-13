@@ -1485,7 +1485,7 @@
       recordsBody.innerHTML = '<tr><td colspan="9" class="text-center"><div class="spinner-border spinner-border-sm text-secondary me-2"></div>資料載入中...</td></tr>';
     
       // 🌐 改用 fetch 機制向後端 API 請求數據，並帶上 action=getBorrowRecords
-      fetch(https://script.google.com/macros/s/AKfycbynEA1QcyEF6a0UMHjex87Yr-WhgDcZEnCwFXiakbxr7QAXbWSGCPLUzl09v6etG0KGbA/exec + "?action=getBorrowRecords")
+      fetch("https://script.google.com/macros/s/AKfycbynEA1QcyEF6a0UMHjex87Yr-WhgDcZEnCwFXiakbxr7QAXbWSGCPLUzl09v6etG0KGbA/exec" + "?action=getBorrowRecords")
         .then(function(response) {
           if (!response.ok) throw new Error("網路回應不正常");
           return response.json();
