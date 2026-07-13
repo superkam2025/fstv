@@ -1292,24 +1292,54 @@
 
     function loadAdminData() {
       showLoading(true);
-      google.script.run
-        .withSuccessHandler(function(members) {
-          showLoading(false); allMembersCached = members; 
-          var tbody = document.getElementById('admin-tbody'); tbody.innerHTML = '';
-          members.forEach(function(m) {
-            var btn = m.role === 'admin' ? '<span class="badge bg-warning text-dark">管理員</span>' : 
-                     (m.role === 'pending' ? `<button class="btn btn-success btn-sm w-100 mb-1" onclick="handleApprove('${m.studentId}')">通過</button><button class="btn btn-danger btn-sm w-100" onclick="handleDelete('${m.studentId}')">拒絕</button>` :
-                      `<span class="badge bg-success mb-1">已通過</span><br><button class="btn btn-primary btn-sm mb-1 w-100" onclick="openPortfolioModal('${m.studentId}')"><i class="fa-solid fa-user-pen me-1"></i>成長檔案</button><br><button class="btn btn-outline-danger btn-sm w-100" onclick="handleDelete('${m.studentId}')">刪除</button>`);
-            var tr = document.createElement('tr'); if(m.role === 'pending') tr.className = 'table-warning';
-            tr.innerHTML = `<td><img src="${m.photo}" class="table-img" onerror="this.src='https://via.placeholder.com/150';"></td><td>${escapeHtml(m.studentId)}</td><td class="fw-bold">${escapeHtml(m.name)}</td><td><span class="badge bg-secondary">${escapeHtml(m.className)}</span></td><td>${escapeHtml(m.phone||'')}</td><td><small>${escapeHtml(m.parentName||'')}(${escapeHtml(m.relationship||'')})<br>${escapeHtml(m.parentPhone||'')}</small></td><td>${btn}</td>`;
-            tbody.appendChild(tr);
-          });
+      
+      // 🌐 透過 action=getAllMembers 指令向 Google Apps Script 請求資料
+      var url = GAS_WEB_APP_URL + "?action=getAllMembers";
+      
+      fetch(url)
+        .then(function(response) {
+          if (!response.ok) {
+            throw new Error("HTTP 錯誤！狀態碼：" + response.status);
+          }
+          return response.json(); // 解析後端回傳的 JSON 陣列
         })
-        .withFailureHandler(function(err) {
-           showLoading(false);
-           alert("加載全體成員檔案失敗: " + err);
+        .then(function(members) {
+          showLoading(false); 
+          
+          // 1. 將撈取到的成員資料存入你原本的全域快取變數中
+          allMembersCached = members; 
+          
+          // 2. 獲取表格 tbody 元素並清空舊內容
+          var tbody = document.getElementById('admin-tbody'); 
+          if (!tbody) {
+            console.error("找不到 id='admin-tbody' 的表格元素！");
+            return;
+          }
+          tbody.innerHTML = '';
+          
+          // 3. 確保後端回傳的是陣列，才進行資料渲染
+          if (Array.isArray(members)) {
+            members.forEach(function(m) {
+              // 💡 保留你原本的按鈕權限判斷邏輯，並順便把預設圖片更換為更穩定的 picsum 服務
+              var btn = m.role === 'admin' ? '<span class="badge bg-warning text-dark">管理員</span>' : 
+                       (m.role === 'pending' ? `<button class="btn btn-success btn-sm w-100 mb-1" onclick="handleApprove('${m.studentId}')">通過</button><button class="btn btn-danger btn-sm w-100" onclick="handleDelete('${m.studentId}')">拒絕</button>` :
+                        `<span class="badge bg-success mb-1">已通過</span><br><button class="btn btn-primary btn-sm mb-1 w-100" onclick="openPortfolioModal('${m.studentId}')"><i class="fa-solid fa-user-pen me-1"></i>成長檔案</button><br><button class="btn btn-outline-danger btn-sm w-100" onclick="handleDelete('${m.studentId}')">刪除</button>`);
+              
+              var tr = document.createElement('tr'); 
+              if(m.role === 'pending') tr.className = 'table-warning';
+              
+              // 填入表格 row 內容
+              tr.innerHTML = `<td><img src="${m.photo || 'https://picsum.photos/150'}" class="table-img" onerror="this.src='https://picsum.photos/150';"></td><td>${escapeHtml(m.studentId)}</td><td class="fw-bold">${escapeHtml(m.name)}</td><td><span class="badge bg-secondary">${escapeHtml(m.className)}</span></td><td>${escapeHtml(m.phone||'')}</td><td><small>${escapeHtml(m.parentName||'')}(${escapeHtml(m.relationship||'')})<br>${escapeHtml(m.parentPhone||'')}</small></td><td>${btn}</td>`;
+              
+              tbody.appendChild(tr);
+            });
+          }
         })
-        .getAllMembers();
+        .catch(function(err) {
+          showLoading(false);
+          console.error("loadAdminData Error:", err);
+          alert("加載全體成員檔案失敗: " + (err.message || err));
+        });
     }
 
     function initAdminMemberDropdown() {
