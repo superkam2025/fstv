@@ -1585,16 +1585,16 @@
     function savePortfolioChanges() {
       var studentId = document.getElementById('edit-student-id').value;
       if (!studentId) return;
-
+    
       // 讀取已經加總完成的最新最終數值
       var totalLearn    = parseInt(document.getElementById('total-learn').innerText) || 0;
       var totalActivity = parseInt(document.getElementById('total-activity').innerText) || 0;
       var totalContest  = parseInt(document.getElementById('total-contest').innerText) || 0;
       var totalSkills   = parseInt(document.getElementById('total-skills').innerText) || 0;
       // 🔥 新增：讀取最終加總後的遲到與缺席總計
-      var totalLate     = parseInt(document.getElementById('total-late').innerText) || 0;
+      var totalLate      = parseInt(document.getElementById('total-late').innerText) || 0;
       var totalAbsent   = parseInt(document.getElementById('total-absent').innerText) || 0;
-
+    
       // 處理歷史里程碑
       var updatedMilestones = [].concat(currentOldMilestones);
       
@@ -1606,11 +1606,11 @@
       var sTitle = document.getElementById('adm-skill-title').value.trim();
       var sDesc = document.getElementById('adm-skill-desc').value.trim();
       if(sTitle) updatedMilestones.push({ type: "🛠️ 專業技術", title: sTitle, desc: sDesc, date: new Date().toLocaleDateString() });
-
+    
       var vType = document.getElementById('adm-violation-type').value;
       var vDesc = document.getElementById('adm-violation-desc').value.trim();
       if(vType) updatedMilestones.push({ type: "⚠️ 違規紀錄", title: vType, desc: vDesc, date: new Date().toLocaleDateString() });
-
+    
       // 🧩 重新建構成完整的全新新物件（含 late 和 absent）
       var newPortfolioObj = {
         learnHours: totalLearn,
@@ -1621,35 +1621,51 @@
         absent: totalAbsent,   // 🔥 寫入新欄位
         milestones: updatedMilestones
       };
-
+    
       var submitBtn = document.getElementById('portfolio-submit-btn');
       if(submitBtn) { submitBtn.disabled = true; submitBtn.innerHTML = '正在同步儲存...'; }
-
-      // 🚀 呼叫後台 GAS 寫入試算表
-      google.script.run
-        .withSuccessHandler(function(res) {
-          if(res.success) {
-            alert(res.message);
-            
-            // 🌟【最核心整合點】同步更新前端快取 allMembersCached 
-            // 這樣下次再用 openPortfolioModal 開啟同個人時，資料才會是最新修正的！
-            var member = allMembersCached.find(function(i) { return i.studentId === studentId; });
-            if(member) {
-              member.portfolio = newPortfolioObj; 
-            }
-            
-            portfolioModalObj.hide();
-            if(typeof refreshAdminTable === 'function') { refreshAdminTable(); } // 如果前端有刷新列表的函式則執行
-          } else {
-            alert(res.message);
-            if(submitBtn) { submitBtn.disabled = false; submitBtn.innerHTML = '確認儲存修改'; }
+    
+      // 🚀 核心修正：打包要傳送給後端的 payload
+      var payload = {
+        action: "updateMemberPortfolio",
+        studentId: studentId,
+        newPortfolioObj: newPortfolioObj
+      };
+    
+      // 🌐 改用 fetch POST 機制傳送 JSON 資料給 GAS
+      fetch(GAS_API_URL, {
+        method: "POST",
+        mode: "cors",
+        headers: {
+          "Content-Type": "text/plain;charset=utf-8" // GAS 接收 POST 時用 text/plain 可以完美避開 CORS preflight 問題
+        },
+        body: JSON.stringify(payload)
+      })
+      .then(function(response) {
+        if (!response.ok) throw new Error("網路回應不正常");
+        return response.json();
+      })
+      .then(function(res) {
+        if(res.success) {
+          alert(res.message);
+          
+          // 🌟【最核心整合點】同步更新前端快取 allMembersCached 
+          var member = allMembersCached.find(function(i) { return i.studentId === studentId; });
+          if(member) {
+            member.portfolio = newPortfolioObj; 
           }
-        })
-        .withFailureHandler(function(err) {
-          alert("連線失敗：" + err);
+          
+          portfolioModalObj.hide();
+          if(typeof refreshAdminTable === 'function') { refreshAdminTable(); } 
+        } else {
+          alert(res.message);
           if(submitBtn) { submitBtn.disabled = false; submitBtn.innerHTML = '確認儲存修改'; }
-        })
-        .updateMemberPortfolio(studentId, newPortfolioObj); // 丟給後台 K 欄寫入
+        }
+      })
+      .catch(function(err) {
+        alert("連線失敗：" + err.message);
+        if(submitBtn) { submitBtn.disabled = false; submitBtn.innerHTML = '確認儲存修改'; }
+      });
     }
 
     // 尋找您原本負責提交管理員修改數據的 function
