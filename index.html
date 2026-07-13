@@ -749,8 +749,9 @@
       </div>
     </div>
   </div>
-
+   
   <script>
+    const GAS_WEB_APP_URL = "https://script.google.com/macros/s/AKfycbynEA1QcyEF6a0UMHjex87Yr-WhgDcZEnCwFXiakbxr7QAXbWSGCPLUzl09v6etG0KGbA/exec";
     // ==========================================
     // 全域變數定義與視窗實例快取
     // ==========================================
@@ -826,8 +827,13 @@
     // ==========================================
     function handleLoginSubmit(e) {
       e.preventDefault();
-      var id = document.getElementById('login-id').value.trim();
-      var pwd = document.getElementById('login-pwd').value;
+      
+      // 🌟 加入安全防呆：確保元素存在才讀取 value，避免 read properties of null 錯誤
+      var idEl = document.getElementById('login-id');
+      var pwdEl = document.getElementById('login-pwd');
+      
+      var id = idEl ? idEl.value.trim() : '';
+      var pwd = pwdEl ? pwdEl.value : '';
 
       if (!id || !pwd) {
         alert("請輸入帳號與密碼！");
@@ -835,8 +841,19 @@
       }
 
       showLoading(true);
-      google.script.run
-        .withSuccessHandler(function(res) {
+
+      // 🌐 改用 fetch 發送請求給外部的 Google Apps Script Web App
+      // 透過 URL 參數傳遞 action=login、id 與 pwd
+      var url = GAS_WEB_APP_URL + "?action=login&id=" + encodeURIComponent(id) + "&pwd=" + encodeURIComponent(pwd);
+
+      fetch(url)
+        .then(function(response) {
+          if (!response.ok) {
+            throw new Error("HTTP 錯誤！狀態碼：" + response.status);
+          }
+          return response.json(); // 解析後端傳回的 JSON 數據
+        })
+        .then(function(res) {
           showLoading(false); // 💡 一旦後端響應，立即安全關閉 Loading 遮罩
           
           if (!res) {
@@ -849,41 +866,52 @@
             alert("身分驗證通過！歡迎 " + res.name + " 登入系統。");
 
             var uTag = document.getElementById('user-tag');
-            uTag.innerText = "👤 " + res.name + " (" + (res.role === 'admin' ? '管理員' : '內部成員') + ")";
-            uTag.style.display = 'inline-block';
-            document.getElementById('logout-btn').style.display = 'inline-block';
+            if (uTag) {
+              uTag.innerText = "👤 " + res.name + " (" + (res.role === 'admin' ? '管理員' : '內部成員') + ")";
+              uTag.style.display = 'inline-block';
+            }
+            
+            var logoutBtn = document.getElementById('logout-btn');
+            if (logoutBtn) logoutBtn.style.display = 'inline-block';
 
-            document.getElementById('menu-login').style.display = 'none';
-            document.getElementById('menu-register').style.display = 'none';
+            var menuLogin = document.getElementById('menu-login');
+            var menuRegister = document.getElementById('menu-register');
+            if (menuLogin) menuLogin.style.display = 'none';
+            if (menuRegister) menuRegister.style.display = 'none';
 
             if (res.role === 'admin') {
-              document.getElementById('admin-panel-alert').style.display = 'none';
-              document.getElementById('admin-panel-content').style.display = 'block';
+              var adminAlert = document.getElementById('admin-panel-alert');
+              var adminContent = document.getElementById('admin-panel-content');
+              if (adminAlert) adminAlert.style.display = 'none';
+              if (adminContent) adminContent.style.display = 'block';
               
               var adminBorrowSec = document.getElementById('adminBorrowSection');
               if (adminBorrowSec) adminBorrowSec.style.display = 'block';
 
-              loadAdminData();
-              initAdminMemberDropdown();
-              loadBorrowRecords(); 
-              switchView('admin-panel-view');
+              // 💡 提示：如果 loadAdminData 等函數內部也有使用 google.script.run，未來也都需要改為 fetch 寫法喔！
+              if (typeof loadAdminData === "function") loadAdminData();
+              if (typeof initAdminMemberDropdown === "function") initAdminMemberDropdown();
+              if (typeof loadBorrowRecords === "function") loadBorrowRecords(); 
+              if (typeof switchView === "function") switchView('admin-panel-view');
             } else {
-              document.getElementById('member-dashboard-alert').style.display = 'none';
-              document.getElementById('member-dashboard-content').style.display = 'block';
-              renderMemberProfile(res.memberData);
-              switchView('member-dashboard-view');
+              var memberAlert = document.getElementById('member-dashboard-alert');
+              var memberContent = document.getElementById('member-dashboard-content');
+              if (memberAlert) memberAlert.style.display = 'none';
+              if (memberContent) memberContent.style.display = 'block';
+              
+              if (typeof renderMemberProfile === "function") renderMemberProfile(res.memberData);
+              if (typeof switchView === "function") switchView('member-dashboard-view');
             }
           } else {
             alert("登入失敗：" + res.message);
           }
         })
-        .withFailureHandler(function(err) {
+        .catch(function(err) {
           showLoading(false); // 💡 連線失敗也必須安全關閉 Loading 遮罩，防止卡死
+          console.error("Login error:", err);
           alert("網路或 Google 伺服器通訊異常，請稍候重試：\n" + (err.message || err));
-        })
-        .login(id, pwd);
+        });
     }
-
     function logout() {
       loggedInUserSession = null; 
       document.getElementById('login-id').value = '';
