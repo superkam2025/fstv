@@ -1516,75 +1516,71 @@
 
     // 2. 🔵 按下確認儲存修改時的打包與即時快取同步
     function savePortfolioChanges() {
+      // 改為直接抓取視窗內綁定的隱藏學號欄位
       var studentId = document.getElementById('edit-student-id').value;
-      if (!studentId) return;
-
-      // 讀取已經加總完成的最新最終數值
-      var totalLearn    = parseInt(document.getElementById('total-learn').innerText) || 0;
-      var totalActivity = parseInt(document.getElementById('total-activity').innerText) || 0;
-      var totalContest  = parseInt(document.getElementById('total-contest').innerText) || 0;
-      var totalSkills   = parseInt(document.getElementById('total-skills').innerText) || 0;
-      // 🔥 新增：讀取最終加總後的遲到與缺席總計
-      var totalLate     = parseInt(document.getElementById('total-late').innerText) || 0;
-      var totalAbsent   = parseInt(document.getElementById('total-absent').innerText) || 0;
-
-      // 處理歷史里程碑
+      
+      // 找出目前被編輯的成員對象，從快取撈出他的真實姓名
+      var member = allMembersCached.find(i => i.studentId === studentId);
+      var currentName = member ? member.name : "";
+    
       var updatedMilestones = [].concat(currentOldMilestones);
       
-      // 處理快速追加欄位 (競賽、技術、違規) 到時間軸
       var cTitle = document.getElementById('adm-contest-title').value.trim();
-      var cDesc = document.getElementById('adm-contest-desc').value.trim();
-      if(cTitle) updatedMilestones.push({ type: "🏅 競賽獎項", title: cTitle, desc: cDesc, date: new Date().toLocaleDateString() });
+      if(cTitle) updatedMilestones.push({ type: "🏅 競賽獎項", title: cTitle, desc: document.getElementById('adm-contest-desc').value.trim(), date: new Date().toLocaleDateString() });
       
       var sTitle = document.getElementById('adm-skill-title').value.trim();
-      var sDesc = document.getElementById('adm-skill-desc').value.trim();
-      if(sTitle) updatedMilestones.push({ type: "🛠️ 專業技術", title: sTitle, desc: sDesc, date: new Date().toLocaleDateString() });
-
+      if(sTitle) updatedMilestones.push({ type: "🛠️ 專業技術", title: sTitle, desc: document.getElementById('adm-skill-desc').value.trim(), date: new Date().toLocaleDateString() });
+    
       var vType = document.getElementById('adm-violation-type').value;
-      var vDesc = document.getElementById('adm-violation-desc').value.trim();
-      if(vType) updatedMilestones.push({ type: "⚠️ 違規紀錄", title: vType, desc: vDesc, date: new Date().toLocaleDateString() });
-
-      // 🧩 重新建構成完整的全新新物件（含 late 和 absent）
+      if(vType) updatedMilestones.push({ type: "⚠️ 違規紀錄", title: vType, desc: document.getElementById('adm-violation-desc').value.trim(), date: new Date().toLocaleDateString() });
+    
+      document.querySelectorAll('.milestone-new-row').forEach(row => {
+        var rTitle = row.querySelector('.new-ms-title').value.trim();
+        if (rTitle) {
+          updatedMilestones.push({ 
+            type: row.querySelector('.new-ms-type').value === 'award' ? "🏅 競賽獎項":"一般經歷", 
+            title: rTitle, 
+            desc: row.querySelector('.new-ms-desc').value.trim(), 
+            date: row.querySelector('.new-ms-date').value.trim() || new Date().toLocaleDateString() 
+          });
+        }
+      });
+    
       var newPortfolioObj = {
-        learnHours: totalLearn,
-        activityHours: totalActivity,
-        contests: totalContest,
-        skills: totalSkills,
-        late: totalLate,       // 🔥 寫入新欄位
-        absent: totalAbsent,   // 🔥 寫入新欄位
+        learnHours: parseInt(document.getElementById('total-learn').innerText) || 0,
+        activityHours: parseInt(document.getElementById('total-activity').innerText) || 0,
+        contests: parseInt(document.getElementById('total-contest').innerText) || 0,
+        skills: parseInt(document.getElementById('total-skills').innerText) || 0,
+        late: parseInt(document.getElementById('total-late').innerText) || 0,       
+        absent: parseInt(document.getElementById('total-absent').innerText) || 0,   
         milestones: updatedMilestones
       };
-
-      var submitBtn = document.getElementById('portfolio-submit-btn');
-      if(submitBtn) { submitBtn.disabled = true; submitBtn.innerHTML = '正在同步儲存...'; }
-
-      // 🚀 呼叫後台 GAS 寫入試算表
-      fetch("https://script.google.com/macros/s/AKfycbynEA1QcyEF6a0UMHjex87Yr-WhgDcZEnCwFXiakbxr7QAXbWSGCPLUzl09v6etG0KGbA/exec" + "?action=getBorrowRecords")
-        .withSuccessHandler(function(res) {
-          if(res.success) {
-            alert(res.message);
-            
-            // 🌟【最核心整合點】同步更新前端快取 allMembersCached 
-            // 這樣下次再用 openPortfolioModal 開啟同個人時，資料才會是最新修正的！
-            var member = allMembersCached.find(function(i) { return i.studentId === studentId; });
-            if(member) {
-              member.portfolio = newPortfolioObj; 
-            }
-            
-            portfolioModalObj.hide();
-            if(typeof refreshAdminTable === 'function') { refreshAdminTable(); } // 如果前端有刷新列表的函式則執行
-          } else {
-            alert(res.message);
-            if(submitBtn) { submitBtn.disabled = false; submitBtn.innerHTML = '確認儲存修改'; }
-          }
+    
+      showLoading(true);
+      portfolioModalObj.hide();
+    
+      // 統一使用 fetch 連線，避免 "google is not defined" 的報錯
+      fetch(GAS_WEB_APP_URL, {
+        method: "POST",
+        mode: "cors",
+        headers: { "Content-Type": "text/plain;charset=utf-8" },
+        body: JSON.stringify({ 
+          action: "updateMemberPortfolio", // 呼叫依學號更新的後端路由
+          studentId: studentId, 
+          newPortfolioObj: newPortfolioObj 
         })
-        .withFailureHandler(function(err) {
-          alert("連線失敗：" + err);
-          if(submitBtn) { submitBtn.disabled = false; submitBtn.innerHTML = '確認儲存修改'; }
-        })
-        .updateMemberPortfolio(studentId, newPortfolioObj); // 丟給後台 K 欄寫入
+      })
+      .then(res => res.json())
+      .then(res => { 
+        showLoading(false); 
+        alert(res.message); 
+        loadAdminData(); // 重新整理管理員清單
+      })
+      .catch((err) => {
+        showLoading(false);
+        alert("同步失敗：" + err.message);
+      });
     }
-
     // 尋找您原本負責提交管理員修改數據的 function
     function submitAdminUpdate() {
       // ... 獲取原本的成員名稱、時數、比賽、技能等欄位值 ...
