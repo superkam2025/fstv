@@ -1481,36 +1481,45 @@
       var recordsBody = document.getElementById('borrowRecordsBody');
       if (!recordsBody) return; 
       
+      // 顯示載入中的動畫
       recordsBody.innerHTML = '<tr><td colspan="9" class="text-center"><div class="spinner-border spinner-border-sm text-secondary me-2"></div>資料載入中...</td></tr>';
-
-      google.script.run
-        .withSuccessHandler(function(records) {
+    
+      // 🌐 改用 fetch 機制向後端 API 請求數據，並帶上 action=getBorrowRecords
+      fetch(https://script.google.com/macros/s/AKfycbynEA1QcyEF6a0UMHjex87Yr-WhgDcZEnCwFXiakbxr7QAXbWSGCPLUzl09v6etG0KGbA/exec + "?action=getBorrowRecords")
+        .then(function(response) {
+          if (!response.ok) throw new Error("網路回應不正常");
+          return response.json();
+        })
+        .then(function(records) {
           console.log("借用紀錄：", records);
           var html = "";
-          if (!records || records.length === 0) {
-            html = '<tr><td colspan="9" class="text-center text-muted">目前暫無任何器材借用登記紀錄。</td></tr>';
+          
+          // ⚠️ 防呆：因為後端成功或出錯回傳的結構不同，或是空陣列
+          if (!records || records.length === 0 || (records.success === false)) {
+            var msg = (records && records.message) ? records.message : "目前暫無任何器材借用登記紀錄。";
+            html = '<tr><td colspan="9" class="text-center text-muted">' + msg + '</td></tr>';
           } else {
             for (var i = 0; i < records.length; i++) {
               html += "<tr>" +
-                        "<td class='cell-time'>" + escapeHtml(records[i].timestamp) + "</td>" +
-                        "<td><span class='badge bg-light text-dark border'>" + escapeHtml(records[i].identity) + "</span></td>" +
-                        "<td><strong>" + escapeHtml(records[i].name) + "</strong></td>" +
-                        "<td>" + escapeHtml(records[i].className) + "</td>" +
-                        "<td>" + escapeHtml(records[i].phone) + "</td>" +
-                        "<td class='cell-wrap-text text-start'><span class='text-primary fw-bold'>" + escapeHtml(records[i].equipment) + "</span></td>" +
-                        "<td>" + escapeHtml(records[i].date) + "</td>" +
-                        "<td>" + escapeHtml(records[i].time) + "</td>" +
-                        "<td><span class='badge bg-dark'>" + escapeHtml(records[i].duration) + " 小時</span></td>" +
+                        "<td class='cell-time'>" + escapeHtml(records[i].timestamp || '') + "</td>" +
+                        "<td><span class='badge bg-light text-dark border'>" + escapeHtml(records[i].identity || '') + "</span></td>" +
+                        "<td><strong>" + escapeHtml(records[i].name || '') + "</strong></td>" +
+                        "<td>" + escapeHtml(records[i].className || '') + "</td>" +
+                        "<td>" + escapeHtml(records[i].phone || '') + "</td>" +
+                        "<td class='cell-wrap-text text-start'><span class='text-primary fw-bold'>" + escapeHtml(records[i].equipment || '') + "</span></td>" +
+                        "<td>" + escapeHtml(records[i].date || '') + "</td>" +
+                        "<td>" + escapeHtml(records[i].time || '') + "</td>" +
+                        "<td><span class='badge bg-dark'>" + escapeHtml(records[i].duration || '0') + " 小時</span></td>" +
                       "</tr>";
             }
           }
           recordsBody.innerHTML = html;
         })
-        .withFailureHandler(function(err) {
+        .catch(function(err) {
+          // 失敗處理（原 withFailureHandler 的邏輯）
           recordsBody.innerHTML = '<tr><td colspan="9" class="text-center text-danger">載入失敗。</td></tr>';
           alert("載入借用紀錄失敗：" + (err.message || err));
-        })
-        .getBorrowRecords();
+        });
     }
 
     // ==========================================
