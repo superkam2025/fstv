@@ -750,23 +750,53 @@
     </div>
   </div>
    
-  <script>
-    const GAS_WEB_APP_URL = "https://script.google.com/macros/s/AKfycbynEA1QcyEF6a0UMHjex87Yr-WhgDcZEnCwFXiakbxr7QAXbWSGCPLUzl09v6etG0KGbA/exec";
+<script>
     // ==========================================
-    // 全域變數定義與視窗實例快取
+    // 全域變數與核心組態 (Global Configuration)
     // ==========================================
-    var checkInModalObj     = null;
-    var viewStatusModalObj  = null;
-    var dutyModalObj        = null;
-    var portfolioModalObj   = null;
-    var borrowModalObj      = null;
+    // ⚠️ 請在此處替換為你實際部署的 Google Apps Script 網路應用程式 URL
+    const GAS_WEB_APP_URL = "https://script.google.com/macros/s/AKfycbz_XXXXXXXXX/exec";
 
-    var loggedInUserSession = null; 
-    var cachedDuties        = [];
-    var allMembersCached    = [];
+    var loggedInUserSession = null;
+    var allMembersCached = [];
     var currentOldMilestones = [];
+    var borrowModalObj = null;
+    var portfolioModalObj = null;
 
-    // 安全防護：防止 XSS 攻擊的 HTML 轉義函式
+    // ==========================================
+    // 基礎共用工具 (Utility Functions)
+    // ==========================================
+    function showLoading(show) {
+      var loader = document.getElementById('loading-overlay');
+      if (loader) {
+        loader.style.display = show ? 'flex' : 'none';
+      }
+    }
+
+    function switchView(viewId) {
+      var views = ['login-view', 'dashboard-view'];
+      views.forEach(function(v) {
+        var el = document.getElementById(v);
+        if (el) el.style.display = 'none';
+      });
+      var target = document.getElementById(viewId);
+      if (target) target.style.display = 'block';
+
+      // 視圖切換時的自動初始化排程
+      if (viewId === 'dashboard-view' && loggedInUserSession) {
+        if (loggedInUserSession.role === 'admin') {
+          var adminPanel = document.getElementById('admin-panel');
+          if (adminPanel) adminPanel.style.display = 'block';
+          loadAdminData();
+          loadBorrowRecords();
+          initAdminMemberDropdown(); 
+        } else {
+          var adminPanel = document.getElementById('admin-panel');
+          if (adminPanel) adminPanel.style.display = 'none';
+        }
+      }
+    }
+
     function escapeHtml(str) {
       if (!str) return '';
       return String(str)
@@ -774,449 +804,80 @@
         .replace(/</g, '&lt;')
         .replace(/>/g, '&gt;')
         .replace(/"/g, '&quot;')
-        .replace(/'/g, '&#039;');
-    }
-
-    // 控制全域 Loading 遮罩
-    function showLoading(status) {
-      var mask = document.getElementById('loading-mask');
-      if (mask) mask.style.display = status ? 'flex' : 'none';
+        .replace(/'/g, '&#39;');
     }
 
     // ==========================================
-    // 核心功能：視圖切換 (View Switching)
+    // 身份驗證模組 (Authentication)
     // ==========================================
-    function switchView(viewId) {
-      var sections = document.querySelectorAll('.view-section');
-      sections.forEach(function(s) { s.classList.remove('active'); });
-      
-      var target = document.getElementById(viewId);
-      if (target) target.classList.add('active');
-
-      var titleMap = {
-        'login-view': '歡迎登入系統',
-        'register-view': '新成員註冊申請中心',
-        'member-dashboard-view': '個人專屬成長檔案與時數進度',
-        'duty-table-view': '電視台活動值日與簽到回報系統',
-        'borrow-view': '器材借用與出借綜合登記表',
-        'admin-panel-view': '高階安全管理員控制台面板'
-      };
-      if (titleMap[viewId]) document.getElementById('page-title').innerText = titleMap[viewId];
-
-      var links = document.querySelectorAll('.sidebar-menu a');
-      links.forEach(function(l) { l.classList.remove('active'); });
-      var activeLink = document.querySelector(`.sidebar-menu a[onclick*="${viewId}"]`);
-      if (activeLink) activeLink.classList.add('active');
-
-      // 視圖切換時自動重新整理對應資料
-      if (viewId === 'duty-table-view') {
-        if (loggedInUserSession && loggedInUserSession.role === 'admin') { 
-          loadDutyDataAdmin(); 
-        } else { 
-          loadDutyDataMember(); 
-        }
-      } else if (viewId === 'borrow-view') {
-        if (loggedInUserSession && loggedInUserSession.role === 'admin') {
-          loadBorrowRecords();
-        }
-      }
-    }
-
-    // ==========================================
-    // 身分驗證模組 (Authentication)
-    // ==========================================
-    function handleLoginSubmit(e) {
+    function handleLogin(e) {
       e.preventDefault();
-      
-      // 🌟 加入安全防呆：確保元素存在才讀取 value，避免 read properties of null 錯誤
       var idEl = document.getElementById('login-id');
       var pwdEl = document.getElementById('login-pwd');
+      if (!idEl || !pwdEl) return;
       
-      var id = idEl ? idEl.value.trim() : '';
-      var pwd = pwdEl ? pwdEl.value : '';
-
-      if (!id || !pwd) {
-        alert("請輸入帳號與密碼！");
-        return;
-      }
+      var id = idEl.value;
+      var pwd = pwdEl.value;
 
       showLoading(true);
 
-      // 🌐 改用 fetch 發送請求給外部的 Google Apps Script Web App
-      // 透過 URL 參數傳遞 action=login、id 與 pwd
-      var url = GAS_WEB_APP_URL + "?action=login&id=" + encodeURIComponent(id) + "&pwd=" + encodeURIComponent(pwd);
+      var url = GAS_WEB_APP_URL + "?action=login&studentId=" + encodeURIComponent(id) + "&password=" + encodeURIComponent(pwd);
 
       fetch(url)
         .then(function(response) {
-          if (!response.ok) {
-            throw new Error("HTTP 錯誤！狀態碼：" + response.status);
-          }
-          return response.json(); // 解析後端傳回的 JSON 數據
+          if (!response.ok) throw new Error("HTTP 錯誤！狀態碼：" + response.status);
+          return response.json();
         })
         .then(function(res) {
-          showLoading(false); // 💡 一旦後端響應，立即安全關閉 Loading 遮罩
-          
-          if (!res) {
-            alert("伺服器無回應，請重新檢查您的連線。");
-            return;
-          }
-          
+          showLoading(false);
           if (res.success) {
-            loggedInUserSession = res;
-            alert("身分驗證通過！歡迎 " + res.name + " 登入系統。");
-
-            var uTag = document.getElementById('user-tag');
-            if (uTag) {
-              uTag.innerText = "👤 " + res.name + " (" + (res.role === 'admin' ? '管理員' : '內部成員') + ")";
-              uTag.style.display = 'inline-block';
-            }
-            
-            var logoutBtn = document.getElementById('logout-btn');
-            if (logoutBtn) logoutBtn.style.display = 'inline-block';
-
-            var menuLogin = document.getElementById('menu-login');
-            var menuRegister = document.getElementById('menu-register');
-            if (menuLogin) menuLogin.style.display = 'none';
-            if (menuRegister) menuRegister.style.display = 'none';
-
-            if (res.role === 'admin') {
-              var adminAlert = document.getElementById('admin-panel-alert');
-              var adminContent = document.getElementById('admin-panel-content');
-              if (adminAlert) adminAlert.style.display = 'none';
-              if (adminContent) adminContent.style.display = 'block';
-              
-              var adminBorrowSec = document.getElementById('adminBorrowSection');
-              if (adminBorrowSec) adminBorrowSec.style.display = 'block';
-
-              // 💡 提示：如果 loadAdminData 等函數內部也有使用 google.script.run，未來也都需要改為 fetch 寫法喔！
-              if (typeof loadAdminData === "function") loadAdminData();
-              if (typeof initAdminMemberDropdown === "function") initAdminMemberDropdown();
-              if (typeof loadBorrowRecords === "function") loadBorrowRecords(); 
-              if (typeof switchView === "function") switchView('admin-panel-view');
-            } else {
-              var memberAlert = document.getElementById('member-dashboard-alert');
-              var memberContent = document.getElementById('member-dashboard-content');
-              if (memberAlert) memberAlert.style.display = 'none';
-              if (memberContent) memberContent.style.display = 'block';
-              
-              if (typeof renderMemberProfile === "function") renderMemberProfile(res.memberData);
-              if (typeof switchView === "function") switchView('member-dashboard-view');
-            }
+            loggedInUserSession = res.user;
+            renderMemberProfile(res.user);
+            switchView('dashboard-view');
           } else {
-            alert("登入失敗：" + res.message);
+            alert(res.message);
           }
         })
         .catch(function(err) {
-          showLoading(false); // 💡 連線失敗也必須安全關閉 Loading 遮罩，防止卡死
-          console.error("Login error:", err);
-          alert("網路或 Google 伺服器通訊異常，請稍候重試：\n" + (err.message || err));
+          showLoading(false);
+          console.error("Login Error:", err);
+          alert("登入連線失敗，請檢查網路或 API 設定：" + (err.message || err));
         });
     }
-    function logout() {
-      loggedInUserSession = null; 
-      document.getElementById('login-id').value = '';
-      document.getElementById('login-pwd').value = '';
 
-      document.getElementById('user-tag').style.display = 'none';
-      document.getElementById('user-tag').innerText = '';
-      document.getElementById('logout-btn').style.display = 'none';
-
-      document.getElementById('menu-login').style.display = 'flex';
-      document.getElementById('menu-register').style.display = 'flex';
-
-      document.getElementById('member-dashboard-alert').style.display = 'block';
-      document.getElementById('member-dashboard-content').style.display = 'none';
-      document.getElementById('admin-panel-alert').style.display = 'block';
-      document.getElementById('admin-panel-content').style.display = 'none';
-      
-      var adminBorrowSec = document.getElementById('adminBorrowSection');
-      if (adminBorrowSec) adminBorrowSec.style.display = 'none';
-
+    function handleLogout() {
+      loggedInUserSession = null;
+      allMembersCached = [];
+      var loginForm = document.getElementById('login-form');
+      if (loginForm) loginForm.reset();
       switchView('login-view');
-      alert("您已安全退出綜合管理系統。");
-    }
-
-    // ==========================================
-    // 活動值日與簽到回報模組 (Duty & Attendance)
-    // ==========================================
-    function handleEditorComplete(activityName, dateStr, index) {
-      var btnEl = document.getElementById(`edit-btn-${index}`);
-      if (!btnEl || btnEl.getAttribute('data-submitted') === 'true') return;
-      if (!confirm(`確定已完成「${activityName}」的影片剪輯工作，並提交回報嗎？`)) return;
-
-      btnEl.setAttribute('data-submitted', 'true');
-      btnEl.disabled = true;
-
-      var payload = { activityName: activityName, date: dateStr, memberName: loggedInUserSession ? loggedInUserSession.name : "", location: "💻 剪輯已完成" };
-      showLoading(true);
-      google.script.run
-        .withSuccessHandler(function(res) {
-          showLoading(false); 
-          alert(res.message); 
-          refreshUserProfileAndDuty();
-        })
-        .withFailureHandler(function(err){
-          showLoading(false); 
-          alert("提交回報失敗：" + err); 
-          btnEl.removeAttribute('data-submitted'); 
-          btnEl.disabled = false; 
-        })
-        .submitCheckIn(payload);
-    }
-
-    function handleCheckInButtonClick(activityName, dateStr, index) {
-      openCheckInModal(activityName, dateStr);
-    }
-
-    function openCheckInModal(activityName, dateStr) {
-      document.getElementById('checkin-form').reset();
-      document.getElementById('ci-activity-name').value = activityName;
-      document.getElementById('ci-date').value = dateStr;
-      var submitBtn = document.querySelector('#checkin-form button[type="submit"]');
-      if (submitBtn) { submitBtn.removeAttribute('data-submitted'); submitBtn.disabled = false; submitBtn.innerHTML = '確認簽到'; }
-      
-      checkInModalObj = bootstrap.Modal.getOrCreateInstance(document.getElementById('checkInModal'));
-      checkInModalObj.show();
-    }
-
-    function handleCheckInSubmit(e) {
-      e.preventDefault();
-      var submitBtn = e.target.querySelector('button[type="submit"]');
-      if (!submitBtn || submitBtn.getAttribute('data-submitted') === 'true') return;
-
-      submitBtn.setAttribute('data-submitted', 'true');
-      submitBtn.disabled = true;
-
-      var payload = {
-        activityName: document.getElementById('ci-activity-name').value, 
-        date: document.getElementById('ci-date').value,
-        memberName: loggedInUserSession ? loggedInUserSession.name : "", 
-        location: document.getElementById('ci-location').value.trim()
-      };
-      
-      showLoading(true); 
-      checkInModalObj = bootstrap.Modal.getOrCreateInstance(document.getElementById('checkInModal'));
-      checkInModalObj.hide();
-
-      google.script.run
-        .withSuccessHandler(function(res) {
-          showLoading(false); 
-          alert(res.message); 
-          if (res.success) refreshUserProfileAndDuty();
-        })
-        .withFailureHandler(function(err){
-          showLoading(false); 
-          alert("簽到失敗：" + err); 
-          submitBtn.removeAttribute('data-submitted'); 
-          submitBtn.disabled = false; 
-        })
-        .submitCheckIn(payload);
     }
 
     function refreshUserProfileAndDuty() {
-      if (loggedInUserSession) {
-        google.script.run
-          .withSuccessHandler(function(newProfile) {
-            if (newProfile.success) { 
-              loggedInUserSession.memberData = newProfile.memberData; 
-              renderMemberProfile(newProfile.memberData); 
-            }
-            if (loggedInUserSession.role === 'admin') { 
-              loadAdminData(); 
-              loadDutyDataAdmin(); 
-              loadBorrowRecords(); 
-            } else { 
-              loadDutyDataMember(); 
-            }
-          })
-          .withFailureHandler(function(err) {
-             console.error("同步使用者檔案失敗: " + err);
-             loadDutyDataMember();
-          })
-          .login(loggedInUserSession.id, "REFRESH_DATA"); 
-      } else { 
-        loadDutyDataMember(); 
-      }
-    }
+      if (!loggedInUserSession) return;
+      showLoading(true);
 
-    // 🏆 問題3優化：成員排班表渲染邏輯重構（被指派崗位全員皆完成，或同一人皆完成後，該紀錄才會在此消失） 🏆
-    function loadDutyDataMember() {
-      var curUserName = loggedInUserSession ? loggedInUserSession.name : "";
-      
-      google.script.run
-        .withSuccessHandler(function(duties) {
-          cachedDuties = duties;
-          var tbody = document.getElementById('duty-tbody'); 
-          tbody.innerHTML = '';
-          
-          if(!duties || duties.length === 0) { 
-            tbody.innerHTML = '<tr><td colspan="6" class="text-muted py-3">目前尚無排定之活動記錄。</td></tr>'; 
-            return; 
-          }
-          
-          var activeCount = 0;
+      var url = GAS_WEB_APP_URL + "?action=getUserProfile&studentId=" + encodeURIComponent(loggedInUserSession.studentId);
 
-          duties.forEach(function(d, idx) {
-            // 1. 計算該活動「指派名單」與「指派給我的具體任務」
-            var isAssignedToMe = false;
-            var myTasksAllDone = true; 
-            var totalAssignedSlots = 0;
-            var totalDoneSlots = 0;
-
-            d.personnelStatus.forEach(function(p) {
-              if (p.memberName) {
-                totalAssignedSlots++;
-                if (p.hasCheckedIn) totalDoneSlots++;
-                
-                if (p.memberName === curUserName) {
-                  isAssignedToMe = true;
-                  if (!p.hasCheckedIn) {
-                    myTasksAllDone = false; // 只要有一項未簽到，就不算完工
-                  }
-                }
-              }
-            });
-
-            // 核心邏輯判斷：如果這個任務跟自己有關，但自己還沒全部回報完，必須顯示
-            // 如果這是一個公用任務，但分派的所有人還沒有全數簽到完成，就保留它。一旦全體完成，即刻自動下架！
-            var shouldShow = false;
-            if (isAssignedToMe) {
-              if (!myTasksAllDone) {
-                shouldShow = true; 
-              }
-            } else {
-              if (totalAssignedSlots > totalDoneSlots) {
-                shouldShow = true; 
-              }
-            }
-
-            if (!shouldShow) return; // 自動下架消失
-            activeCount++;
-
-            var camHtml = ''; 
-            var editHtml = '';
-            
-            d.personnelStatus.forEach(function(p) {
-              if(p.roleLabel.indexOf("拍攝") !== -1) {
-                if(p.memberName === curUserName && !p.hasCheckedIn) {
-                  camHtml += `<div class="mb-1">${escapeHtml(p.roleLabel)}: <strong>${escapeHtml(p.memberName)}</strong> <button id="cam-btn-${idx}" class="btn btn-success btn-xs py-0 px-2 small ms-1" onclick="handleCheckInButtonClick('${escapeHtml(d.activityName)}','${escapeHtml(d.date)}',${idx})">簽到</button></div>`;
-                } else {
-                  camHtml += `<div class="mb-1 text-muted">${escapeHtml(p.roleLabel)}: <strong class="text-dark">${escapeHtml(p.memberName)}</strong> ${p.hasCheckedIn?'<span class="text-success small fw-bold">(在場)</span>':'<span class="text-danger small">(未到)</span>'}</div>`;
-                }
-              } else if(p.roleLabel.indexOf("剪輯") !== -1) {
-                if(p.memberName === curUserName && !p.hasCheckedIn) {
-                  editHtml += `<div><strong>${escapeHtml(p.memberName)}</strong> <button id="edit-btn-${idx}" class="btn btn-primary btn-xs py-0 px-2 small ms-1" onclick="handleEditorComplete('${escapeHtml(d.activityName)}','${escapeHtml(d.date)}',${idx})">回報完成</button></div>`;
-                } else {
-                  editHtml += `<div class="text-muted"><strong class="text-dark">${escapeHtml(p.memberName)}</strong> ${p.hasCheckedIn?'<span class="text-primary small fw-bold">(已完成)</span>':'<span class="text-danger small">(待剪輯)</span>'}</div>`;
-                }
-              }
-            });
-
-            var tr = document.createElement('tr');
-            tr.innerHTML = `<td><strong>${escapeHtml(d.date)}</strong><br><small class="text-muted">${escapeHtml(d.time)}</small></td>
-                            <td class="fw-bold text-dark text-start">${escapeHtml(d.activityName)}</td>
-                            <td>${escapeHtml(d.leader)}</td>
-                            <td class="text-start">${camHtml||'-'}</td>
-                            <td>${editHtml||'-'}</td>
-                            <td><button class="btn btn-outline-info btn-sm px-2 py-1" onclick="openViewStatusModal(${idx})">追蹤</button></td>`;
-            tbody.appendChild(tr);
-          });
-
-          if (activeCount === 0) {
-            tbody.innerHTML = '<tr><td colspan="6" class="text-success fw-bold py-3"><i class="fa-solid fa-circle-check me-2"></i>好棒！目前所有您被指派的值日與製片工作已全數完成！</td></tr>';
-          }
+      fetch(url)
+        .then(function(response) {
+          if (!response.ok) throw new Error("HTTP 錯誤！狀態碼：" + response.status);
+          return response.json();
         })
-        .withFailureHandler(function(err) {
-           var tbody = document.getElementById('duty-tbody');
-           tbody.innerHTML = '<tr><td colspan="6" class="text-danger py-3">排班表載入失敗，錯誤: ' + err.message + '</td></tr>';
-        })
-        .getActivityDuties(curUserName);
-    }
-
-    // 管理員看板（管理員不隱藏任何紀錄，方便追蹤）
-    function loadDutyDataAdmin() {
-      google.script.run
-        .withSuccessHandler(function(duties) {
-          cachedDuties = duties;
-          var tbody = document.getElementById('duty-tbody'); tbody.innerHTML = '';
-          if(!duties || duties.length === 0) { tbody.innerHTML = '<tr><td colspan="6" class="text-muted py-3">目前無活動安排。</td></tr>'; return; }
-          duties.forEach(function(d, idx) {
-            var camHtml = ''; var editHtml = '';
-            d.personnelStatus.forEach(function(p) {
-              if(p.roleLabel.indexOf("拍攝") !== -1) {
-                camHtml += `<div class="mb-1 small">${escapeHtml(p.roleLabel)}: <strong>${escapeHtml(p.memberName||'未指派')}</strong> ${p.hasCheckedIn?'<span class="text-success fw-bold">(在場)</span>':'<span class="text-muted">(未)</span>'}</div>`;
-              } else {
-                editHtml += `<div class="small">剪輯: <strong>${escapeHtml(p.memberName||'未指派')}</strong> ${p.hasCheckedIn?'<span class="text-primary fw-bold">(完)</span>':'<span class="text-muted">(待)</span>'}</div>`;
-              }
-            });
-            var tr = document.createElement('tr');
-            tr.innerHTML = `<td><strong>${escapeHtml(d.date)}</strong></td><td class="fw-bold text-dark text-start">${escapeHtml(d.activityName)}</td><td>${escapeHtml(d.leader)}</td><td class="text-start">${camHtml}</td><td>${editHtml}</td><td><button class="btn btn-outline-info btn-sm px-2 py-1" onclick="openViewStatusModal(${idx})">追蹤</button></td>`;
-            tbody.appendChild(tr);
-          });
-        })
-        .withFailureHandler(function(err) {
-           document.getElementById('duty-tbody').innerHTML = '<tr><td colspan="6" class="text-danger py-3">管理員排班表載入失敗。</td></tr>';
-        })
-        .getActivityDuties();
-    }
-
-    function openViewStatusModal(index) {
-      var duty = cachedDuties[index]; if(!duty) return;
-      document.getElementById('vs-activity-title').innerText = duty.activityName + " (" + duty.date + ")";
-      var tbody = document.getElementById('vs-tbody'); tbody.innerHTML = '';
-      duty.personnelStatus.forEach(function(p) {
-        var isEdit = p.roleLabel.indexOf("剪輯") !== -1;
-        var tr = document.createElement('tr');
-        tr.innerHTML = `<td>${escapeHtml(p.roleLabel)}</td><td class="fw-bold">${escapeHtml(p.memberName)}</td><td>${p.hasCheckedIn?(isEdit?'<span class="badge bg-primary">已完成</span>':'<span class="badge bg-success">已在場</span>'):'<span class="badge bg-danger">未完成/未到</span>'}</td><td>${p.hasCheckedIn?escapeHtml(p.time):'--'}</td><td>${p.hasCheckedIn?escapeHtml(p.location):'-'}</td>`;
-        tbody.appendChild(tr);
-      });
-      
-      viewStatusModalObj = bootstrap.Modal.getOrCreateInstance(document.getElementById('viewStatusModal'));
-      viewStatusModalObj.show();
-    }
-
-    function openDutyModal() {
-      document.getElementById('duty-form').reset();
-      document.getElementById('duty-date').value = new Date().toISOString().split('T')[0];
-      var approved = allMembersCached.filter(function(m) { return m.role === 'member'; });
-      var selects = [document.getElementById('duty-cam1'), document.getElementById('duty-cam2'), document.getElementById('duty-cam3'), document.getElementById('duty-editor')];
-      selects.forEach(function(sel, i){
-        sel.innerHTML = (i===0||i===3)?'<option value="" disabled selected>-- 請選擇 --</option>':'<option value="">-- 選填 --</option>';
-        approved.forEach(function(m){ var opt=document.createElement('option'); opt.value=m.name; opt.innerText=m.name; sel.appendChild(opt); });
-      });
-      
-      dutyModalObj = bootstrap.Modal.getOrCreateInstance(document.getElementById('dutyModal'));
-      dutyModalObj.show();
-    }
-
-    function handleDutySubmit(e) {
-      e.preventDefault();
-      var payload = {
-        activityName: document.getElementById('duty-activity-name').value.trim(), 
-        date: document.getElementById('duty-date').value, 
-        time: document.getElementById('duty-time').value.trim(), 
-        leader: document.getElementById('duty-leader').value.trim(),
-        cam1: document.getElementById('duty-cam1').value, 
-        cam2: document.getElementById('duty-cam2').value, 
-        cam3: document.getElementById('duty-cam3').value, 
-        editor: document.getElementById('duty-editor').value
-      };
-      showLoading(true); 
-      dutyModalObj = bootstrap.Modal.getOrCreateInstance(document.getElementById('dutyModal'));
-      dutyModalObj.hide();
-      google.script.run
-        .withSuccessHandler(function(res) { 
-          showLoading(false); 
-          alert(res.message); 
-          if(res.success) { 
-            if(loggedInUserSession && loggedInUserSession.role==='admin'){loadDutyDataAdmin();}else{loadDutyDataMember();} 
-          } 
-        })
-        .withFailureHandler(function(err) {
+        .then(function(res) {
           showLoading(false);
-          alert("活動排班失敗：" + err);
+          if (res.success) {
+            loggedInUserSession = res.user;
+            renderMemberProfile(res.user);
+            if (res.user.role === 'admin') {
+              loadAdminData();
+            }
+          }
         })
-        .submitActivityDuty(payload);
+        .catch(function(err) {
+          showLoading(false);
+          console.error("Refresh Error:", err);
+        });
     }
 
     // ==========================================
@@ -1224,23 +885,23 @@
     // ==========================================
     function renderMemberProfile(data) {
       // 1. 基礎基本資料渲染
-      document.getElementById('m-photo').src = data.photo || "https://via.placeholder.com/150";
-      document.getElementById('m-name').innerText = data.name; 
-      document.getElementById('m-id').innerText = data.studentId; 
-      document.getElementById('m-class').innerText = data.className;
-      document.getElementById('m-phone').innerText = data.phone || '無'; 
-      document.getElementById('m-pname').innerText = data.parentName || '無'; 
-      document.getElementById('m-prel').innerText = data.relationship || '無'; 
-      document.getElementById('m-pphone').innerText = data.parentPhone || '無';
+      if (document.getElementById('m-photo')) document.getElementById('m-photo').src = data.photo || "https://via.placeholder.com/150";
+      if (document.getElementById('m-name')) document.getElementById('m-name').innerText = data.name; 
+      if (document.getElementById('m-id')) document.getElementById('m-id').innerText = data.studentId; 
+      if (document.getElementById('m-class')) document.getElementById('m-class').innerText = data.className;
+      if (document.getElementById('m-phone')) document.getElementById('m-phone').innerText = data.phone || '無'; 
+      if (document.getElementById('m-pname')) document.getElementById('m-pname').innerText = data.parentName || '無'; 
+      if (document.getElementById('m-prel')) document.getElementById('m-prel').innerText = data.relationship || '無'; 
+      if (document.getElementById('m-pphone')) document.getElementById('m-pphone').innerText = data.parentPhone || '無';
 
-      // 2. 獲取歷程檔案數據 (若無則提供預設值) 🌟已補上 late 與 absent 的預設值 0
+      // 2. 獲取歷程檔案數據 (若無則提供預設值)
       var pf = data.portfolio || { learnHours: 0, activityHours: 0, contests: 0, skills: 0, late: 0, absent: 0, milestones: [] };
-      document.getElementById('stat-learn').innerText = (pf.learnHours || 0) + ' 小時';
-      document.getElementById('stat-activity').innerText = (pf.activityHours || 0) + ' 次';
-      document.getElementById('stat-contest').innerText = (pf.contests || 0) + ' 次';
-      document.getElementById('stat-skills').innerText = (pf.skills || 0) + ' 項';
+      if (document.getElementById('stat-learn')) document.getElementById('stat-learn').innerText = (pf.learnHours || 0) + ' 小時';
+      if (document.getElementById('stat-activity')) document.getElementById('stat-activity').innerText = (pf.activityHours || 0) + ' 次';
+      if (document.getElementById('stat-contest')) document.getElementById('stat-contest').innerText = (pf.contests || 0) + ' 次';
+      if (document.getElementById('stat-skills')) document.getElementById('stat-skills').innerText = (pf.skills || 0) + ' 項';
       
-      // 🔥 新增：將遲到與缺席數據渲染到成員面板中
+      // 將遲到與缺席數據渲染到成員面板中
       if (document.getElementById('stat-late')) {
         document.getElementById('stat-late').innerText = (pf.late || 0) + ' 次';
       }
@@ -1258,58 +919,54 @@
           ? '<i class="fa-solid fa-star me-1"></i>' 
           : '<i class="fa-solid fa-star text-muted me-1" style="color:#e4e5e9 !important;"></i>';
       }
-      document.getElementById('p-stars').innerHTML = starHtml;
+      if (document.getElementById('p-stars')) document.getElementById('p-stars').innerHTML = starHtml;
 
       // 4. 渲染個人成長時間軸 (包含一般、獎項、違規標記)
       var ul = document.getElementById('p-timeline'); 
-      ul.innerHTML = '';
-      
-      if (pf.milestones && pf.milestones.length > 0) {
-        pf.milestones.forEach(function(item) {
-          var li = document.createElement('li'); 
-          
-          // ✨ 依據後端傳回的 type 賦予對應的 CSS 類別
-          if (item.type === 'award') {
-            li.className = 'modal-timeline-item award';
-          } else if (item.type === 'violation') {
-            li.className = 'modal-timeline-item violation'; // 🎯 遲到/缺席會走到這裡
-          } else {
-            li.className = 'modal-timeline-item';
-          }
-          
-          // 組裝時間軸 HTML 內容
-          li.innerHTML = `
-            <div class="modal-timeline-date">${escapeHtml(item.date)}</div>
-            <div class="fw-bold text-dark">${escapeHtml(item.title)}</div>
-            <p class="text-muted small mb-0">${escapeHtml(item.desc || '')}</p>
-          `;
-          ul.appendChild(li);
-        });
-      } else { 
-        ul.innerHTML = '<li class="text-muted small">目前尚無里程碑紀錄。</li>'; 
+      if (ul) {
+        ul.innerHTML = '';
+        if (pf.milestones && pf.milestones.length > 0) {
+          pf.milestones.forEach(function(item) {
+            var li = document.createElement('li'); 
+            
+            // 時間軸樣式判定
+            let badgeColor = "bg-primary";
+            if (item.type === 'award' || item.type === '🏅 競賽獎項') {
+              li.className = 'modal-timeline-item award';
+              badgeColor = "bg-warning text-dark";
+            } else if (item.type === 'violation' || item.type === '⚠️ 違規紀錄') {
+              li.className = 'modal-timeline-item violation';
+              badgeColor = "bg-danger text-white"; // 🔴 違規案件自動變紅章
+            } else {
+              li.className = 'modal-timeline-item';
+            }
+            
+            li.innerHTML = `
+              <div class="modal-timeline-date">${escapeHtml(item.date)}</div>
+              <div class="fw-bold text-dark"><span class="badge ${badgeColor} me-1" style="font-size:0.7rem;">${escapeHtml(item.type || '紀錄')}</span>${escapeHtml(item.title)}</div>
+              <p class="text-muted small mb-0">${escapeHtml(item.desc || '')}</p>
+            `;
+            ul.appendChild(li);
+          });
+        } else { 
+          ul.innerHTML = '<li class="text-muted small">目前尚無里程碑紀錄。</li>'; 
+        }
       }
     }
 
     function loadAdminData() {
       showLoading(true);
-      
-      // 🌐 透過 action=getAllMembers 指令向 Google Apps Script 請求資料
       var url = GAS_WEB_APP_URL + "?action=getAllMembers";
       
       fetch(url)
         .then(function(response) {
-          if (!response.ok) {
-            throw new Error("HTTP 錯誤！狀態碼：" + response.status);
-          }
-          return response.json(); // 解析後端回傳的 JSON 陣列
+          if (!response.ok) throw new Error("HTTP 錯誤！狀態碼：" + response.status);
+          return response.json();
         })
         .then(function(members) {
           showLoading(false); 
-          
-          // 1. 將撈取到的成員資料存入你原本的全域快取變數中
           allMembersCached = members; 
           
-          // 2. 獲取表格 tbody 元素並清空舊內容
           var tbody = document.getElementById('admin-tbody'); 
           if (!tbody) {
             console.error("找不到 id='admin-tbody' 的表格元素！");
@@ -1317,10 +974,8 @@
           }
           tbody.innerHTML = '';
           
-          // 3. 確保後端回傳的是陣列，才進行資料渲染
           if (Array.isArray(members)) {
             members.forEach(function(m) {
-              // 💡 保留你原本的按鈕權限判斷邏輯，並順便把預設圖片更換為更穩定的 picsum 服務
               var btn = m.role === 'admin' ? '<span class="badge bg-warning text-dark">管理員</span>' : 
                        (m.role === 'pending' ? `<button class="btn btn-success btn-sm w-100 mb-1" onclick="handleApprove('${m.studentId}')">通過</button><button class="btn btn-danger btn-sm w-100" onclick="handleDelete('${m.studentId}')">拒絕</button>` :
                         `<span class="badge bg-success mb-1">已通過</span><br><button class="btn btn-primary btn-sm mb-1 w-100" onclick="openPortfolioModal('${m.studentId}')"><i class="fa-solid fa-user-pen me-1"></i>成長檔案</button><br><button class="btn btn-outline-danger btn-sm w-100" onclick="handleDelete('${m.studentId}')">刪除</button>`);
@@ -1328,9 +983,7 @@
               var tr = document.createElement('tr'); 
               if(m.role === 'pending') tr.className = 'table-warning';
               
-              // 填入表格 row 內容
               tr.innerHTML = `<td><img src="${m.photo || 'https://picsum.photos/150'}" class="table-img" onerror="this.src='https://picsum.photos/150';"></td><td>${escapeHtml(m.studentId)}</td><td class="fw-bold">${escapeHtml(m.name)}</td><td><span class="badge bg-secondary">${escapeHtml(m.className)}</span></td><td>${escapeHtml(m.phone||'')}</td><td><small>${escapeHtml(m.parentName||'')}(${escapeHtml(m.relationship||'')})<br>${escapeHtml(m.parentPhone||'')}</small></td><td>${btn}</td>`;
-              
               tbody.appendChild(tr);
             });
           }
@@ -1344,157 +997,184 @@
 
     function initAdminMemberDropdown() {
       var selectEl = document.getElementById('adm-member-name'); if (!selectEl) return;
-      google.script.run
-        .withSuccessHandler(function(res) {
+      var url = GAS_WEB_APP_URL + "?action=getAllMemberNames";
+
+      fetch(url)
+        .then(function(res) { return res.json(); })
+        .then(function(res) {
           if (res.success && res.memberList) {
             selectEl.innerHTML = '<option value="">-- 請選擇成員 --</option>';
-            res.memberList.forEach(function(name) { var opt = document.createElement('option'); opt.value = name; opt.textContent = name; selectEl.appendChild(opt); });
+            res.memberList.forEach(function(name) { 
+              var opt = document.createElement('option'); 
+              opt.value = name; 
+              opt.textContent = name; 
+              selectEl.appendChild(opt); 
+            });
           }
         })
-        .withFailureHandler(function(err) {
-           console.error("加載成員下拉清單失敗: " + err);
-        })
-        .getAllMemberNames();
+        .catch(function(err) {
+           console.error("加載成員下拉清單失敗: " + err.message);
+        });
     }
 
     function handleAdminFormSubmit(e) {
-      e.preventDefault();
-      var submitBtn = document.getElementById('adm-submit-btn'); if (submitBtn.disabled) return;
-      var memberName = document.getElementById('adm-member-name').value;
-      if(!memberName) return;
-
-      submitBtn.disabled = true; submitBtn.innerHTML = '儲存數據中...';
+      if(e && e.preventDefault) e.preventDefault();
+      var submitBtn = document.getElementById('adm-submit-btn'); if (submitBtn && submitBtn.disabled) return;
       
-      // 🏆 修正點：精確對接 UI 上的管理員違規輸入元件 id
+      var nameEl = document.getElementById('adm-member-name');
+      var memberName = nameEl ? nameEl.value : "";
+      if(!memberName) {
+        alert("請選擇欲修改資料的學生成員！");
+        return;
+      }
+
+      if(submitBtn) { submitBtn.disabled = true; submitBtn.innerHTML = '儲存數據中...'; }
+      
       var adminPayload = {
+        action: "updateMemberPortfolioByAdmin",
         memberName: memberName, 
-        learnHours: document.getElementById('adm-learn-hours').value, 
-        activityHours: document.getElementById('adm-activity-hours').value,
-        newContestTitle: document.getElementById('adm-contest-title').value, 
-        newContestDesc: document.getElementById('adm-contest-desc').value,
-        newSkillTitle: document.getElementById('adm-skill-title').value, 
-        newSkillDesc: document.getElementById('adm-skill-desc').value,
-        
-        // 🔥 補上原本缺失的參數
-        violationType: document.getElementById('adm-violation-type').value,
-        violationDesc: document.getElementById('adm-violation-desc').value
+        learnHours: document.getElementById('adm-learn-hours') ? document.getElementById('adm-learn-hours').value : 0, 
+        activityHours: document.getElementById('adm-activity-hours') ? document.getElementById('adm-activity-hours').value : 0,
+        newContestTitle: document.getElementById('adm-contest-title') ? document.getElementById('adm-contest-title').value : "", 
+        newContestDesc: document.getElementById('adm-contest-desc') ? document.getElementById('adm-contest-desc').value : "",
+        newSkillTitle: document.getElementById('adm-skill-title') ? document.getElementById('adm-skill-title').value : "", 
+        newSkillDesc: document.getElementById('adm-skill-desc') ? document.getElementById('adm-skill-desc').value : "",
+        violationType: document.getElementById('adm-violation-type') ? document.getElementById('adm-violation-type').value : "",
+        violationDesc: document.getElementById('adm-violation-desc') ? document.getElementById('adm-violation-desc').value : ""
       };
       
-      google.script.run
-        .withSuccessHandler(function(res) {
-          submitBtn.disabled = false; submitBtn.innerHTML = '<i class="fa-solid fa-cloud-arrow-up me-1"></i>確認更新學生成長檔案';
-          alert(res.message); 
-          if (res.success) {  
-            document.getElementById('adm-contest-title').value = ""; document.getElementById('adm-contest-desc').value = "";
-            document.getElementById('adm-skill-title').value = ""; document.getElementById('adm-skill-desc').value = "";
-            
-            // ✨ 成功送出後，一併清空違規紀錄欄位，防止重複誤送
-            document.getElementById('adm-violation-type').value = "";
-            document.getElementById('adm-violation-desc').value = "";
-            
-            refreshUserProfileAndDuty();
-          }
-        })
-        .withFailureHandler(function(err){ 
-          submitBtn.disabled = false; 
-          submitBtn.innerHTML = '<i class="fa-solid fa-cloud-arrow-up me-1"></i>確認更新學生成長檔案'; 
-          alert("連線程序異常：" + err.toString());
-        })
-        .updateMemberPortfolioByAdmin(adminPayload);
+      fetch(GAS_WEB_APP_URL, {
+        method: "POST",
+        mode: "cors",
+        headers: { "Content-Type": "text/plain;charset=utf-8" },
+        body: JSON.stringify(adminPayload)
+      })
+      .then(function(res) { return res.json(); })
+      .then(function(res) {
+        if(submitBtn) { submitBtn.disabled = false; submitBtn.innerHTML = '<i class="fa-solid fa-cloud-arrow-up me-1"></i>確認更新學生成長檔案'; }
+        alert(res.message); 
+        if (res.success) {  
+          if(document.getElementById('adm-contest-title')) document.getElementById('adm-contest-title').value = ""; 
+          if(document.getElementById('adm-contest-desc')) document.getElementById('adm-contest-desc').value = "";
+          if(document.getElementById('adm-skill-title')) document.getElementById('adm-skill-title').value = ""; 
+          if(document.getElementById('adm-skill-desc')) document.getElementById('adm-skill-desc').value = "";
+          if(document.getElementById('adm-violation-type')) document.getElementById('adm-violation-type').value = "";
+          if(document.getElementById('adm-violation-desc')) document.getElementById('adm-violation-desc').value = "";
+          
+          refreshUserProfileAndDuty();
+        }
+      })
+      .catch(function(err){ 
+        if(submitBtn) { submitBtn.disabled = false; submitBtn.innerHTML = '<i class="fa-solid fa-cloud-arrow-up me-1"></i>確認更新學生成長檔案'; }
+        alert("連線程序異常：" + err.message);
+      });
     }
 
     function filterTable() {
-      var input = document.getElementById('search-input').value.toUpperCase();
-      var rows = document.getElementById('admin-tbody').getElementsByTagName('tr');
-      for (var i = 0; i < rows.length; i++) { var txt = rows[i].textContent || rows[i].innerText; rows[i].style.display = txt.toUpperCase().indexOf(input) > -1 ? "" : "none"; }
+      var inputEl = document.getElementById('search-input');
+      if (!inputEl) return;
+      var input = inputEl.value.toUpperCase();
+      var tbody = document.getElementById('admin-tbody');
+      if (!tbody) return;
+      var rows = tbody.getElementsByTagName('tr');
+      for (var i = 0; i < rows.length; i++) { 
+        var txt = rows[i].textContent || rows[i].innerText; 
+        rows[i].style.display = txt.toUpperCase().indexOf(input) > -1 ? "" : "none"; 
+      }
     }
 
     // ==========================================
     // 器材借用綜合模組 (Equipment Borrowing)
     // ==========================================
     function openBorrowModal() {
-      document.getElementById('borrow-form').reset();
-      document.getElementById('borrow-date').value = new Date().toISOString().split('T')[0];
+      var borrowForm = document.getElementById('borrow-form');
+      if (borrowForm) borrowForm.reset();
+      
+      if (document.getElementById('borrow-date')) {
+        document.getElementById('borrow-date').value = new Date().toISOString().split('T')[0];
+      }
+      
       if (loggedInUserSession) {
-        document.getElementById('borrow-member-block').style.display = 'block'; document.getElementById('borrow-guest-block').style.display = 'none';
-        document.getElementById('borrow-member-info').innerText = loggedInUserSession.name;
+        if(document.getElementById('borrow-member-block')) document.getElementById('borrow-member-block').style.display = 'block'; 
+        if(document.getElementById('borrow-guest-block')) document.getElementById('borrow-guest-block').style.display = 'none';
+        if(document.getElementById('borrow-member-info')) document.getElementById('borrow-member-info').innerText = loggedInUserSession.name;
       } else {
-        document.getElementById('borrow-member-block').style.display = 'none'; document.getElementById('borrow-guest-block').style.display = 'flex';
+        if(document.getElementById('borrow-member-block')) document.getElementById('borrow-member-block').style.display = 'none'; 
+        if(document.getElementById('borrow-guest-block')) document.getElementById('borrow-guest-block').style.display = 'flex';
       }
       
       borrowModalObj = bootstrap.Modal.getOrCreateInstance(document.getElementById('borrowModal'));
       borrowModalObj.show();
     }
 
-    // 🏆 問題2修正：多件器材同時借用前端封裝打包（最多5件項目） 🏆
     function handleBorrowSubmit(e) {
       e.preventDefault();
       
-      // 依序抓取 1 到 5 個下拉選單的值
       var selectedEquipments = [];
       for (var k = 1; k <= 5; k++) {
-        var eqVal = document.getElementById('borrow-eq-' + k).value;
-        if (eqVal && eqVal.trim() !== "") {
-          selectedEquipments.push(eqVal.trim());
+        var el = document.getElementById('borrow-eq-' + k);
+        if (el) {
+          var eqVal = el.value;
+          if (eqVal && eqVal.trim() !== "") {
+            selectedEquipments.push(eqVal.trim());
+          }
         }
       }
 
-      // 安全防呆
       if (selectedEquipments.length === 0) {
         alert("請至少選擇一件欲借用的設備器材！");
         return;
       }
 
-      // 將多件器材以頓號（、）串接
       var finalEquipmentString = selectedEquipments.join('、');
 
       var payload = {
+        action: "submitEquipmentBorrow",
         identity: loggedInUserSession ? "成員" : "訪客", 
-        name: loggedInUserSession ? loggedInUserSession.name : document.getElementById('borrow-name').value,
-        className: loggedInUserSession ? "電視台" : document.getElementById('borrow-class').value, 
-        phone: loggedInUserSession ? "N/A" : document.getElementById('borrow-phone').value,
-        equipment: finalEquipmentString, // 💡 多件器材封裝字串
-        date: document.getElementById('borrow-date').value, 
-        time: document.getElementById('borrow-time').value, 
-        duration: document.getElementById('borrow-duration').value
+        name: loggedInUserSession ? loggedInUserSession.name : (document.getElementById('borrow-name') ? document.getElementById('borrow-name').value : ""),
+        className: loggedInUserSession ? "電視台" : (document.getElementById('borrow-class') ? document.getElementById('borrow-class').value : ""), 
+        phone: loggedInUserSession ? "N/A" : (document.getElementById('borrow-phone') ? document.getElementById('borrow-phone').value : ""),
+        equipment: finalEquipmentString, 
+        date: document.getElementById('borrow-date') ? document.getElementById('borrow-date').value : "", 
+        time: document.getElementById('borrow-time') ? document.getElementById('borrow-time').value : "", 
+        duration: document.getElementById('borrow-duration') ? document.getElementById('borrow-duration').value : "1"
       };
 
       showLoading(true); 
       borrowModalObj = bootstrap.Modal.getOrCreateInstance(document.getElementById('borrowModal'));
       borrowModalObj.hide();
 
-      google.script.run
-        .withSuccessHandler(function(res){ 
-          showLoading(false); 
-          alert(res.message); 
-          if(loggedInUserSession && loggedInUserSession.role === 'admin') loadBorrowRecords(); 
-        })
-        .withFailureHandler(function(err){
-          showLoading(false);
-          alert("借用登記提交失敗：" + err);
-        })
-        .submitEquipmentBorrow(payload);
+      fetch(GAS_WEB_APP_URL, {
+        method: "POST",
+        mode: "cors",
+        headers: { "Content-Type": "text/plain;charset=utf-8" },
+        body: JSON.stringify(payload)
+      })
+      .then(function(res) { return res.json(); })
+      .then(function(res){ 
+        showLoading(false); 
+        alert(res.message); 
+        if(loggedInUserSession && loggedInUserSession.role === 'admin') loadBorrowRecords(); 
+      })
+      .catch(function(err){
+        showLoading(false);
+        alert("借用登記提交失敗：" + err.message);
+      });
     }
 
-    // 🏆 問題1修正：優化管理員查看借用器材格式，加上安全轉義與防破版結構 🏆
     function loadBorrowRecords() {
       var recordsBody = document.getElementById('borrowRecordsBody');
       if (!recordsBody) return; 
       
-      // 顯示載入中的動畫
       recordsBody.innerHTML = '<tr><td colspan="9" class="text-center"><div class="spinner-border spinner-border-sm text-secondary me-2"></div>資料載入中...</td></tr>';
     
-      // 🌐 改用 fetch 機制向後端 API 請求數據，並帶上 action=getBorrowRecords
-      fetch("https://script.google.com/macros/s/AKfycbynEA1QcyEF6a0UMHjex87Yr-WhgDcZEnCwFXiakbxr7QAXbWSGCPLUzl09v6etG0KGbA/exec" + "?action=getBorrowRecords")
+      fetch(GAS_WEB_APP_URL + "?action=getBorrowRecords")
         .then(function(response) {
           if (!response.ok) throw new Error("網路回應不正常");
           return response.json();
         })
         .then(function(records) {
-          console.log("借用紀錄：", records);
           var html = "";
-          
-          // ⚠️ 防呆：因為後端成功或出錯回傳的結構不同，或是空陣列
           if (!records || records.length === 0 || (records.success === false)) {
             var msg = (records && records.message) ? records.message : "目前暫無任何器材借用登記紀錄。";
             html = '<tr><td colspan="9" class="text-center text-muted">' + msg + '</td></tr>';
@@ -1516,7 +1196,6 @@
           recordsBody.innerHTML = html;
         })
         .catch(function(err) {
-          // 失敗處理（原 withFailureHandler 的邏輯）
           recordsBody.innerHTML = '<tr><td colspan="9" class="text-center text-danger">載入失敗。</td></tr>';
           alert("載入借用紀錄失敗：" + (err.message || err));
         });
@@ -1525,19 +1204,17 @@
     // ==========================================
     // 學生成長檔案進階修訂模組 (Portfolio)
     // ==========================================
-    // 1. 🟢 開啟學生活動與資歷核實寫入面板
     function openPortfolioModal(studentId) {
       var member = allMembersCached.find(function(i) { return i.studentId === studentId; });
       if(!member) return;
       
-      document.getElementById('edit-student-id').value = member.studentId;
-      document.getElementById('edit-member-name').innerText = member.name + " (" + member.className + ")";
-      document.getElementById('edit-member-photo').src = member.photo || "https://via.placeholder.com/150";
+      if(document.getElementById('edit-student-id')) document.getElementById('edit-student-id').value = member.studentId;
+      if(document.getElementById('edit-member-name')) document.getElementById('edit-member-name').innerText = member.name + " (" + member.className + ")";
+      if(document.getElementById('edit-member-photo')) document.getElementById('edit-member-photo').src = member.photo || "https://via.placeholder.com/150";
       
       var submitBtn = document.getElementById('portfolio-submit-btn');
       if(submitBtn) { submitBtn.disabled = false; submitBtn.innerHTML = '確認儲存修改'; }
 
-      // 初始化物件時，同步加上 late 與 absent 欄位預設值
       var pf = { learnHours: 0, activityHours: 0, contests: 0, skills: 0, late: 0, absent: 0, milestones: [] };
       if (member.portfolio) {
         if (typeof member.portfolio === 'string') { 
@@ -1545,25 +1222,20 @@
         } else { pf = member.portfolio; }
       }
       
-      // 載入歷史數據到 Modal 的 old 顯示區
-      document.getElementById('old-learn').innerText = pf.learnHours || 0;
-      document.getElementById('old-activity').innerText = pf.activityHours || 0;
-      document.getElementById('old-contest').innerText = pf.contests || 0;
-      document.getElementById('old-skills').innerText = pf.skills || 0;
-      // 🔥 載入歷史遲到與缺席次數
-      document.getElementById('old-late').innerText = pf.late || 0;
-      document.getElementById('old-absent').innerText = pf.absent || 0;
+      if(document.getElementById('old-learn')) document.getElementById('old-learn').innerText = pf.learnHours || 0;
+      if(document.getElementById('old-activity')) document.getElementById('old-activity').innerText = pf.activityHours || 0;
+      if(document.getElementById('old-contest')) document.getElementById('old-contest').innerText = pf.contests || 0;
+      if(document.getElementById('old-skills')) document.getElementById('old-skills').innerText = pf.skills || 0;
+      if(document.getElementById('old-late')) document.getElementById('old-late').innerText = pf.late || 0;
+      if(document.getElementById('old-absent')) document.getElementById('old-absent').innerText = pf.absent || 0;
       
-      // 將本次追加輸入框清空歸零
-      document.getElementById('add-learn').value = 0; 
-      document.getElementById('add-activity').value = 0; 
-      document.getElementById('add-contest').value = 0; 
-      document.getElementById('add-skills').value = 0;
-      // 🔥 將本次追加的遲到與缺席輸入框清空歸零
-      document.getElementById('add-late').value = 0;
-      document.getElementById('add-absent').value = 0;
+      if(document.getElementById('add-learn')) document.getElementById('add-learn').value = 0; 
+      if(document.getElementById('add-activity')) document.getElementById('add-activity').value = 0; 
+      if(document.getElementById('add-contest')) document.getElementById('add-contest').value = 0; 
+      if(document.getElementById('add-skills')) document.getElementById('add-skills').value = 0;
+      if(document.getElementById('add-late')) document.getElementById('add-late').value = 0;
+      if(document.getElementById('add-absent')) document.getElementById('add-absent').value = 0;
       
-      // 每次打開面板，都清空違規紀錄文字框與下拉選單
       if (document.getElementById('adm-violation-type')) document.getElementById('adm-violation-type').value = '';
       if (document.getElementById('adm-violation-desc')) document.getElementById('adm-violation-desc').value = '';
       if (document.getElementById('adm-contest-title')) document.getElementById('adm-contest-title').value = '';
@@ -1574,71 +1246,80 @@
       currentOldMilestones = pf.milestones || [];
       renderOldMilestonesHistory();
       
-      document.getElementById('new-milestones-container').innerHTML = '';
+      if(document.getElementById('new-milestones-container')) document.getElementById('new-milestones-container').innerHTML = '';
       calcPortfolioTotals();
       
       portfolioModalObj = bootstrap.Modal.getOrCreateInstance(document.getElementById('portfolioModal'));
       portfolioModalObj.show();
     }
 
-    // 2. 🔵 按下確認儲存修改時的打包與即時快取同步
     function savePortfolioChanges() {
-      var studentId = document.getElementById('edit-student-id').value;
+      var studentId = document.getElementById('edit-student-id') ? document.getElementById('edit-student-id').value : "";
       if (!studentId) return;
     
-      // 讀取已經加總完成的最新最終數值
-      var totalLearn    = parseInt(document.getElementById('total-learn').innerText) || 0;
-      var totalActivity = parseInt(document.getElementById('total-activity').innerText) || 0;
-      var totalContest  = parseInt(document.getElementById('total-contest').innerText) || 0;
-      var totalSkills   = parseInt(document.getElementById('total-skills').innerText) || 0;
-      // 🔥 新增：讀取最終加總後的遲到與缺席總計
-      var totalLate      = parseInt(document.getElementById('total-late').innerText) || 0;
-      var totalAbsent   = parseInt(document.getElementById('total-absent').innerText) || 0;
+      var totalLearn    = document.getElementById('total-learn') ? (parseInt(document.getElementById('total-learn').innerText) || 0) : 0;
+      var totalActivity = document.getElementById('total-activity') ? (parseInt(document.getElementById('total-activity').innerText) || 0) : 0;
+      var totalContest  = document.getElementById('total-contest') ? (parseInt(document.getElementById('total-contest').innerText) || 0) : 0;
+      var totalSkills   = document.getElementById('total-skills') ? (parseInt(document.getElementById('total-skills').innerText) || 0) : 0;
+      var totalLate      = document.getElementById('total-late') ? (parseInt(document.getElementById('total-late').innerText) || 0) : 0;
+      var totalAbsent   = document.getElementById('total-absent') ? (parseInt(document.getElementById('total-absent').innerText) || 0) : 0;
     
-      // 處理歷史里程碑
       var updatedMilestones = [].concat(currentOldMilestones);
       
-      // 處理快速追加欄位 (競賽、技術、違規) 到時間軸
-      var cTitle = document.getElementById('adm-contest-title').value.trim();
-      var cDesc = document.getElementById('adm-contest-desc').value.trim();
+      var cTitle = document.getElementById('adm-contest-title') ? document.getElementById('adm-contest-title').value.trim() : "";
+      var cDesc = document.getElementById('adm-contest-desc') ? document.getElementById('adm-contest-desc').value.trim() : "";
       if(cTitle) updatedMilestones.push({ type: "🏅 競賽獎項", title: cTitle, desc: cDesc, date: new Date().toLocaleDateString() });
       
-      var sTitle = document.getElementById('adm-skill-title').value.trim();
-      var sDesc = document.getElementById('adm-skill-desc').value.trim();
+      var sTitle = document.getElementById('adm-skill-title') ? document.getElementById('adm-skill-title').value.trim() : "";
+      var sDesc = document.getElementById('adm-skill-desc') ? document.getElementById('adm-skill-desc').value.trim() : "";
       if(sTitle) updatedMilestones.push({ type: "🛠️ 專業技術", title: sTitle, desc: sDesc, date: new Date().toLocaleDateString() });
     
-      var vType = document.getElementById('adm-violation-type').value;
-      var vDesc = document.getElementById('adm-violation-desc').value.trim();
+      var vType = document.getElementById('adm-violation-type') ? document.getElementById('adm-violation-type').value : "";
+      var vDesc = document.getElementById('adm-violation-desc') ? document.getElementById('adm-violation-desc').value.trim() : "";
       if(vType) updatedMilestones.push({ type: "⚠️ 違規紀錄", title: vType, desc: vDesc, date: new Date().toLocaleDateString() });
     
-      // 🧩 重新建構成完整的全新新物件（含 late 和 absent）
+      // 讀取動態加入的新里程碑資料列
+      var newRows = document.querySelectorAll('.milestone-new-row');
+      newRows.forEach(function(row) {
+        var rDate = row.querySelector('.new-ms-date') ? row.querySelector('.new-ms-date').value.trim() : "";
+        var rTitle = row.querySelector('.new-ms-title') ? row.querySelector('.new-ms-title').value.trim() : "";
+        var rType = row.querySelector('.new-ms-type') ? row.querySelector('.new-ms-type').value : "normal";
+        var rDesc = row.querySelector('.new-ms-desc') ? row.querySelector('.new-ms-desc').value.trim() : "";
+        
+        if (rTitle) {
+          var typeStr = (rType === 'award') ? "🏅 競賽獎項" : "一般經歷";
+          updatedMilestones.push({
+            type: typeStr,
+            title: rTitle,
+            desc: rDesc,
+            date: rDate || new Date().toLocaleDateString()
+          });
+        }
+      });
+
       var newPortfolioObj = {
         learnHours: totalLearn,
         activityHours: totalActivity,
         contests: totalContest,
         skills: totalSkills,
-        late: totalLate,       // 🔥 寫入新欄位
-        absent: totalAbsent,   // 🔥 寫入新欄位
+        late: totalLate,       
+        absent: totalAbsent,   
         milestones: updatedMilestones
       };
     
       var submitBtn = document.getElementById('portfolio-submit-btn');
       if(submitBtn) { submitBtn.disabled = true; submitBtn.innerHTML = '正在同步儲存...'; }
     
-      // 🚀 核心修正：打包要傳送給後端的 payload
       var payload = {
         action: "updateMemberPortfolio",
         studentId: studentId,
         newPortfolioObj: newPortfolioObj
       };
     
-      // 🌐 改用 fetch POST 機制傳送 JSON 資料給 GAS
-      fetch(GAS_API_URL, {
+      fetch(GAS_WEB_APP_URL, {
         method: "POST",
         mode: "cors",
-        headers: {
-          "Content-Type": "text/plain;charset=utf-8" // GAS 接收 POST 時用 text/plain 可以完美避開 CORS preflight 問題
-        },
+        headers: { "Content-Type": "text/plain;charset=utf-8" },
         body: JSON.stringify(payload)
       })
       .then(function(response) {
@@ -1648,15 +1329,10 @@
       .then(function(res) {
         if(res.success) {
           alert(res.message);
-          
-          // 🌟【最核心整合點】同步更新前端快取 allMembersCached 
           var member = allMembersCached.find(function(i) { return i.studentId === studentId; });
-          if(member) {
-            member.portfolio = newPortfolioObj; 
-          }
-          
+          if(member) { member.portfolio = newPortfolioObj; }
           portfolioModalObj.hide();
-          if(typeof refreshAdminTable === 'function') { refreshAdminTable(); } 
+          loadAdminData();
         } else {
           alert(res.message);
           if(submitBtn) { submitBtn.disabled = false; submitBtn.innerHTML = '確認儲存修改'; }
@@ -1668,31 +1344,26 @@
       });
     }
 
-    // 尋找您原本負責提交管理員修改數據的 function
     function submitAdminUpdate() {
-      // ... 獲取原本的成員名稱、時數、比賽、技能等欄位值 ...
-      var memberName = document.getElementById("adminSelectMember").value; // 依您原本的 id 為準
-      var learnHours = document.getElementById("adminLearnHours").value;
-      var activityHours = document.getElementById("adminActivityHours").value;
-      var newContestTitle = document.getElementById("adminContestTitle").value;
-      var newContestDesc = document.getElementById("adminContestDesc").value;
-      var newSkillTitle = document.getElementById("adminSkillTitle").value;
-      var newSkillDesc = document.getElementById("adminSkillDesc").value;
-
-      // 1. 🔍 在這裡捕獲我們剛才新增的「違規紀錄」資料
-      var violationType = document.getElementById("adminViolationType").value;
-      var violationDesc = document.getElementById("adminViolationDesc").value;
+      var memberName = document.getElementById("adminSelectMember") ? document.getElementById("adminSelectMember").value : ""; 
+      var learnHours = document.getElementById("adminLearnHours") ? document.getElementById("adminLearnHours").value : "";
+      var activityHours = document.getElementById("adminActivityHours") ? document.getElementById("adminActivityHours").value : "";
+      var newContestTitle = document.getElementById("adminContestTitle") ? document.getElementById("adminContestTitle").value : "";
+      var newContestDesc = document.getElementById("adminContestDesc") ? document.getElementById("adminContestDesc").value : "";
+      var newSkillTitle = document.getElementById("adminSkillTitle") ? document.getElementById("adminSkillTitle").value : "";
+      var newSkillDesc = document.getElementById("adminSkillDesc") ? document.getElementById("adminSkillDesc").value : "";
+      var violationType = document.getElementById("adminViolationType") ? document.getElementById("adminViolationType").value : "";
+      var violationDesc = document.getElementById("adminViolationDesc") ? document.getElementById("adminViolationDesc").value : "";
 
       if (!memberName) {
         alert("請先選擇要調整的成員！");
         return;
       }
 
-      // 顯示載入狀態（依您原本的 UI 設計）
       showLoading(true);
 
-      // 2. 📦 將資料打包傳送給後端 Code.gs
       var adminPayload = {
+        action: "updateMemberPortfolioByAdmin",
         memberName: memberName,
         learnHours: learnHours,
         activityHours: activityHours,
@@ -1700,39 +1371,37 @@
         newContestDesc: newContestDesc,
         newSkillTitle: newSkillTitle,
         newSkillDesc: newSkillDesc,
-        
-        // 🔥 對接新功能的參數
         violationType: violationType,
         violationDesc: violationDesc
       };
 
-      // 3. 🚀 執行後端 GAS 核心程序
-      google.script.run
-        .withSuccessHandler(function(response) {
-          showLoading(false);
-          if (response.success) {
-            alert(response.message);
-            
-            // ✨ 成功送出後，清空違規紀錄欄位，避免下次誤送
-            document.getElementById("adminViolationType").value = "";
-            document.getElementById("adminViolationDesc").value = "";
-            
-            // 如果您有寫重新載入表格的 function，在此處調用（例如：refreshAdminTable()）
-          } else {
-            alert("更新失敗：" + response.message);
-          }
-        })
-        .withFailureHandler(function(err) {
-          showLoading(false);
-          alert("連線程序異常：" + err.toString());
-        })
-        .updateMemberPortfolioByAdmin(adminPayload); // 呼叫 Code.gs 中的函式
+      fetch(GAS_WEB_APP_URL, {
+        method: "POST",
+        mode: "cors",
+        headers: { "Content-Type": "text/plain;charset=utf-8" },
+        body: JSON.stringify(adminPayload)
+      })
+      .then(function(res) { return res.json(); })
+      .then(function(response) {
+        showLoading(false);
+        if (response.success) {
+          alert(response.message);
+          if(document.getElementById("adminViolationType")) document.getElementById("adminViolationType").value = "";
+          if(document.getElementById("adminViolationDesc")) document.getElementById("adminViolationDesc").value = "";
+          loadAdminData();
+        } else {
+          alert("更新失敗：" + response.message);
+        }
+      })
+      .catch(function(err) {
+        showLoading(false);
+        alert("連線程序異常：" + err.message);
+      });
     }
-
-
 
     function renderOldMilestonesHistory() {
       var container = document.getElementById('old-milestones-history-container'); 
+      if(!container) return;
       container.innerHTML = '';
       
       if(currentOldMilestones.length > 0) {
@@ -1741,7 +1410,8 @@
         
         currentOldMilestones.forEach(function(m, idx) {
           var li = document.createElement('li'); 
-          li.className = m.type === 'award' ? 'modal-timeline-item award' : 'modal-timeline-item';
+          li.className = (m.type === 'award' || m.type === '🏅 競賽獎項') ? 'modal-timeline-item award' : 
+                         (m.type === 'violation' || m.type === '⚠️ 違規紀錄') ? 'modal-timeline-item violation' : 'modal-timeline-item';
           li.innerHTML = `
             <div class="d-flex justify-content-between align-items-start">
               <div>
@@ -1772,6 +1442,7 @@
 
     function addNewMilestoneRow() {
       var container = document.getElementById('new-milestones-container'); 
+      if(!container) return;
       var div = document.createElement('div'); 
       div.className = 'milestone-new-row position-relative mb-2 p-2 border rounded bg-light';
       div.innerHTML = `
@@ -1788,20 +1459,15 @@
     }
 
     function calcPortfolioTotals() {
-      // 將所有需要計算的項目類型列出來
       var types = ['learn', 'activity', 'contest', 'skills', 'late', 'absent'];
-      
       types.forEach(function(type) {
         var oldValEl = document.getElementById('old-' + type);
         var addValEl = document.getElementById('add-' + type);
         var totalValEl = document.getElementById('total-' + type);
         
-        // 確保畫面上確實有這些 DOM 元素才進行計算，避免報錯
         if (oldValEl && addValEl && totalValEl) {
           var oldVal = parseInt(oldValEl.innerText) || 0;
           var addVal = parseInt(addValEl.value) || 0;
-          
-          // 保留你的 Math.max(0, ...) 防呆邏輯，確保總計不為負數
           totalValEl.innerText = Math.max(0, oldVal + addVal);
         }
       });
@@ -1810,83 +1476,6 @@
     function closePortfolioModal() { 
       portfolioModalObj = bootstrap.Modal.getOrCreateInstance(document.getElementById('portfolioModal'));
       portfolioModalObj.hide(); 
-    }
-
-    function savePortfolioChanges() {
-      var studentId = document.getElementById('edit-student-id').value;
-      if (!studentId) return;
-
-      // 1. 取得目前畫面加總後的最新數值 (對應 total-xxx 欄位)
-      var totalLearn   = parseInt(document.getElementById('total-learn').innerText) || 0;
-      var totalActivity= parseInt(document.getElementById('total-activity').innerText) || 0;
-      var totalContest = parseInt(document.getElementById('total-contest').innerText) || 0;
-      var totalSkills  = parseInt(document.getElementById('total-skills').innerText) || 0;
-      // 🔥 新增：取得最新計算後的遲到與缺席總次數
-      var totalLate    = parseInt(document.getElementById('total-late').innerText) || 0;
-      var totalAbsent  = parseInt(document.getElementById('total-absent').innerText) || 0;
-
-      // 2. 處理動態里程碑（維持你原本的邏輯）
-      var updatedMilestones = [].concat(currentOldMilestones);
-      
-      // (處理競賽獎項快速欄位)
-      var cTitle = document.getElementById('adm-contest-title').value.trim();
-      var cDesc = document.getElementById('adm-contest-desc').value.trim();
-      if(cTitle) {
-        updatedMilestones.push({ type: "🏅 競賽獎項", title: cTitle, desc: cDesc, date: new Date().toLocaleDateString() });
-      }
-      
-      // (處理專業技術快速欄位)
-      var sTitle = document.getElementById('adm-skill-title').value.trim();
-      var sDesc = document.getElementById('adm-skill-desc').value.trim();
-      if(sTitle) {
-        updatedMilestones.push({ type: "🛠️ 專業技術", title: sTitle, desc: sDesc, date: new Date().toLocaleDateString() });
-      }
-
-      // (處理本次新增的違規紀錄快速欄位)
-      var vType = document.getElementById('adm-violation-type').value;
-      var vDesc = document.getElementById('adm-violation-desc').value.trim();
-      if(vType) {
-        updatedMilestones.push({ type: "⚠️ 違規紀錄", title: vType, desc: vDesc, date: new Date().toLocaleDateString() });
-      }
-
-      // 3. 🧩 完美打包：建構準備傳回後台的 newPortfolioObj
-      var newPortfolioObj = {
-        learnHours: totalLearn,
-        activityHours: totalActivity,
-        contests: totalContest,
-        skills: totalSkills,
-        late: totalLate,       // 🔥 寫入新結構：遲到總次數
-        absent: totalAbsent,   // 🔥 寫入新結構：缺席總次數
-        milestones: updatedMilestones
-      };
-
-      // 4. 🚀 呼叫後台 Apps Script 函式
-      var submitBtn = document.getElementById('portfolio-submit-btn');
-      if(submitBtn) { submitBtn.disabled = true; submitBtn.innerHTML = '正在儲存...'; }
-
-      google.script.run
-        .withSuccessHandler(function(res) {
-          if(res.success) {
-            alert(res.message);
-            
-            // 🌟 關鍵同步：同時更新前端快取 allMembersCached，避免不重整網頁時資料不同步
-            var member = allMembersCached.find(function(i) { return i.studentId === studentId; });
-            if(member) {
-              member.portfolio = newPortfolioObj; // 更新快取
-            }
-            
-            portfolioModalObj.hide();
-            if(typeof refreshAdminTable === 'function') { refreshAdminTable(); } // 如果你有刷新表格的函式就呼叫
-          } else {
-            alert(res.message);
-            if(submitBtn) { submitBtn.disabled = false; submitBtn.innerHTML = '確認儲存修改'; }
-          }
-        })
-        .withFailureHandler(function(err) {
-          alert("系統連線失敗：" + err);
-          if(submitBtn) { submitBtn.disabled = false; submitBtn.innerHTML = '確認儲存修改'; }
-        })
-        .updateMemberPortfolio(studentId, newPortfolioObj); // 呼叫你的 GAS 後台
     }
 
     // ==========================================
@@ -1917,77 +1506,144 @@
     
     function doReg(m) { 
       showLoading(true); 
-      google.script.run
-        .withSuccessHandler(function(res){ 
-          showLoading(false); 
-          alert(res.message); 
-          if(res.success) switchView('login-view'); 
-        })
-        .withFailureHandler(function(err){
-          showLoading(false);
-          alert("註冊通訊失敗：" + err);
-        })
-        .registerMember(m); 
+      var payload = {
+        action: "registerMember",
+        memberData: m
+      };
+
+      fetch(GAS_WEB_APP_URL, {
+        method: "POST",
+        mode: "cors",
+        headers: { "Content-Type": "text/plain;charset=utf-8" },
+        body: JSON.stringify(payload)
+      })
+      .then(function(res) { return res.json(); })
+      .then(function(res){ 
+        showLoading(false); 
+        alert(res.message); 
+        if(res.success) switchView('login-view'); 
+      })
+      .catch(function(err){
+        showLoading(false);
+        alert("註冊通訊失敗：" + err.message);
+      });
     }
 
     function handleApprove(id) { 
       if(confirm('核准此成員加入？')){ 
         showLoading(true); 
-        google.script.run
-          .withSuccessHandler(function(){ loadAdminData(); })
-          .withFailureHandler(function(err){ showLoading(false); alert("審批失敗：" + err); })
-          .approveMember(id); 
+        var payload = {
+          action: "approveMember",
+          studentId: id
+        };
+
+        fetch(GAS_WEB_APP_URL, {
+          method: "POST",
+          mode: "cors",
+          headers: { "Content-Type": "text/plain;charset=utf-8" },
+          body: JSON.stringify(payload)
+        })
+        .then(function(res) { return res.json(); })
+        .then(function(res) {
+          alert(res.message || "審批成功！");
+          loadAdminData(); 
+        })
+        .catch(function(err){ 
+          showLoading(false); 
+          alert("審批失敗：" + err.message); 
+        });
       } 
     }
     
     function handleDelete(id) { 
       if(confirm('確定將此成員從名冊中移出刪除？')){ 
         showLoading(true); 
-        google.script.run
-          .withSuccessHandler(function(){ loadAdminData(); })
-          .withFailureHandler(function(err){ showLoading(false); alert("刪除失敗：" + err); })
-          .deleteMember(id); 
+        var payload = {
+          action: "deleteMember",
+          studentId: id
+        };
+
+        fetch(GAS_WEB_APP_URL, {
+          method: "POST",
+          mode: "cors",
+          headers: { "Content-Type": "text/plain;charset=utf-8" },
+          body: JSON.stringify(payload)
+        })
+        .then(function(res) { return res.json(); })
+        .then(function(res) {
+          alert(res.message || "成員已成功刪除！");
+          loadAdminData(); 
+        })
+        .catch(function(err){ 
+          showLoading(false); 
+          alert("刪除失敗：" + err.message); 
+        });
       } 
     }
 
-    // 初始化網頁動態設定
+    // 初始化網頁動態設定與事件綁定
     document.addEventListener("DOMContentLoaded", function() { 
       showLoading(false); 
-    });
-
-    // 範例：管理員按下提交鈕時封裝的物件
-    const adminPayload = {
-      memberName: document.getElementById("selectMember").value,
-      learnHours: document.getElementById("inputLearnHours").value,
-      activityHours: document.getElementById("inputActivityHours").value,
-      newContestTitle: "", 
-      newContestDesc: "",
-      newSkillTitle: "",
-      newSkillDesc: "",
       
-      // 新功能對接欄位
-      violationType: document.getElementById("violationTypeSelect").value, // 可提供下拉選單："遲到"、"缺席"、"其它違規事項"
-      violationDesc: document.getElementById("violationDescTextarea").value // 詳細事由
-    };
-
-    // 呼叫後端 Google Apps Script
-    google.script.run
-      .withSuccessHandler(res => alert(res.message))
-      .updateMemberPortfolioByAdmin(adminPayload);
-
-    // 前端時間軸元件渲染邏輯參考
-    portfolio.milestones.forEach(item => {
-      let badgeColor = "bg-primary";
-      if (item.type === "award") badgeColor = "bg-warning text-dark";
-      if (item.type === "violation") badgeColor = "bg-danger"; // 🔴 違規案件自動變紅章
-
-      // 渲染 HTML 結構...
+      // 自動綁定註冊表單事件
+      var regForm = document.getElementById('registerForm');
+      if (regForm) {
+        regForm.addEventListener('submit', handleRegister);
+      }
+      
+      // 自動綁定快速後台表單事件
+      var adminForm = document.getElementById('adminFastForm');
+      if (adminForm) {
+        adminForm.addEventListener('submit', handleAdminFormSubmit);
+      }
     });
 
+    // 封裝以保留未來相容舊版結構呼叫的輔助函式
+    function triggerLegacyAdminUpdate() {
+      var selectMemEl = document.getElementById("selectMember");
+      var learnEl = document.getElementById("inputLearnHours");
+      var actEl = document.getElementById("inputActivityHours");
+      var violTypeEl = document.getElementById("violationTypeSelect");
+      var violDescEl = document.getElementById("violationDescTextarea");
 
+      if (!selectMemEl || !selectMemEl.value) {
+        console.warn("未選擇成員，跳過舊版測試排程");
+        return;
+      }
+
+      var payload = {
+        action: "updateMemberPortfolioByAdmin",
+        memberName: selectMemEl.value,
+        learnHours: learnEl ? learnEl.value : 0,
+        activityHours: actEl ? actEl.value : 0,
+        newContestTitle: "", 
+        newContestDesc: "",
+        newSkillTitle: "",
+        newSkillDesc: "",
+        violationType: violTypeEl ? violTypeEl.value : "", 
+        violationDesc: violDescEl ? violDescEl.value : "" 
+      };
+
+      fetch(GAS_WEB_APP_URL, {
+        method: "POST",
+        mode: "cors",
+        headers: { "Content-Type": "text/plain;charset=utf-8" },
+        body: JSON.stringify(payload)
+      })
+      .then(res => res.json())
+      .then(res => alert(res.message))
+      .catch(err => console.error("同步失敗:", err));
+    }
+
+    function getTimelineBadgeClass(type) {
+      if (type === "award" || type === "🏅 競賽獎項") return "bg-warning text-dark";
+      if (type === "violation" || type === "⚠️ 違規紀錄") return "bg-danger text-white"; 
+      return "bg-primary text-white";
+    }
 
   </script>
   <!-- Bootstrap 5 JS Bundle -->
   <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/js/bootstrap.bundle.min.js"></script>
+
 </body>
 </html>
