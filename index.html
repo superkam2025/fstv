@@ -754,7 +754,6 @@
     // ==========================================
     // 全域變數與核心組態 (Global Configuration)
     // ==========================================
-    // ⚠️ 請在此處替換為你實際部署的 Google Apps Script 網路應用程式 URL
     const GAS_WEB_APP_URL = "https://script.google.com/macros/s/AKfycbz_XXXXXXXXX/exec";
 
     var loggedInUserSession = null;
@@ -782,16 +781,14 @@
       var target = document.getElementById(viewId);
       if (target) target.style.display = 'block';
 
-      // 視圖切換時的自動初始化排程
       if (viewId === 'dashboard-view' && loggedInUserSession) {
+        var adminPanel = document.getElementById('admin-panel');
         if (loggedInUserSession.role === 'admin') {
-          var adminPanel = document.getElementById('admin-panel');
           if (adminPanel) adminPanel.style.display = 'block';
           loadAdminData();
           loadBorrowRecords();
           initAdminMemberDropdown(); 
         } else {
-          var adminPanel = document.getElementById('admin-panel');
           if (adminPanel) adminPanel.style.display = 'none';
         }
       }
@@ -811,14 +808,16 @@
     // 身份驗證模組 (Authentication)
     // ==========================================
     function handleLogin(e) {
-      e.preventDefault();
+      if(e && e.preventDefault) e.preventDefault();
       var idEl = document.getElementById('login-id');
       var pwdEl = document.getElementById('login-pwd');
-      if (!idEl || !pwdEl) return;
+      if (!idEl || !pwdEl) {
+        alert("找不到登入輸入欄位，請檢查網頁 HTML 結構");
+        return;
+      }
       
       var id = idEl.value;
       var pwd = pwdEl.value;
-
       showLoading(true);
 
       var url = GAS_WEB_APP_URL + "?action=login&studentId=" + encodeURIComponent(id) + "&password=" + encodeURIComponent(pwd);
@@ -841,7 +840,7 @@
         .catch(function(err) {
           showLoading(false);
           console.error("Login Error:", err);
-          alert("登入連線失敗，請檢查網路或 API 設定：" + (err.message || err));
+          alert("登入連線失敗：" + (err.message || err));
         });
     }
 
@@ -884,32 +883,24 @@
     // 儀表板與管理控制台 (Dashboard & Admin)
     // ==========================================
     function renderMemberProfile(data) {
-      // 1. 基礎基本資料渲染
+      if (!data) return;
       if (document.getElementById('m-photo')) document.getElementById('m-photo').src = data.photo || "https://via.placeholder.com/150";
-      if (document.getElementById('m-name')) document.getElementById('m-name').innerText = data.name; 
-      if (document.getElementById('m-id')) document.getElementById('m-id').innerText = data.studentId; 
-      if (document.getElementById('m-class')) document.getElementById('m-class').innerText = data.className;
+      if (document.getElementById('m-name')) document.getElementById('m-name').innerText = data.name || ''; 
+      if (document.getElementById('m-id')) document.getElementById('m-id').innerText = data.studentId || ''; 
+      if (document.getElementById('m-class')) document.getElementById('m-class').innerText = data.className || '';
       if (document.getElementById('m-phone')) document.getElementById('m-phone').innerText = data.phone || '無'; 
       if (document.getElementById('m-pname')) document.getElementById('m-pname').innerText = data.parentName || '無'; 
       if (document.getElementById('m-prel')) document.getElementById('m-prel').innerText = data.relationship || '無'; 
       if (document.getElementById('m-pphone')) document.getElementById('m-pphone').innerText = data.parentPhone || '無';
 
-      // 2. 獲取歷程檔案數據 (若無則提供預設值)
       var pf = data.portfolio || { learnHours: 0, activityHours: 0, contests: 0, skills: 0, late: 0, absent: 0, milestones: [] };
       if (document.getElementById('stat-learn')) document.getElementById('stat-learn').innerText = (pf.learnHours || 0) + ' 小時';
       if (document.getElementById('stat-activity')) document.getElementById('stat-activity').innerText = (pf.activityHours || 0) + ' 次';
       if (document.getElementById('stat-contest')) document.getElementById('stat-contest').innerText = (pf.contests || 0) + ' 次';
       if (document.getElementById('stat-skills')) document.getElementById('stat-skills').innerText = (pf.skills || 0) + ' 項';
-      
-      // 將遲到與缺席數據渲染到成員面板中
-      if (document.getElementById('stat-late')) {
-        document.getElementById('stat-late').innerText = (pf.late || 0) + ' 次';
-      }
-      if (document.getElementById('stat-absent')) {
-        document.getElementById('stat-absent').innerText = (pf.absent || 0) + ' 次';
-      }
+      if (document.getElementById('stat-late')) document.getElementById('stat-late').innerText = (pf.late || 0) + ' 次';
+      if (document.getElementById('stat-absent')) document.getElementById('stat-absent').innerText = (pf.absent || 0) + ' 次';
 
-      // 3. 計算成長星級 (學習時數 + 活動時數)
       var score = (pf.learnHours || 0) + (pf.activityHours || 0);
       var stars = score >= 150 ? 5 : (score >= 100 ? 4 : (score >= 50 ? 3 : (score >= 20 ? 2 : 1)));
       
@@ -921,22 +912,19 @@
       }
       if (document.getElementById('p-stars')) document.getElementById('p-stars').innerHTML = starHtml;
 
-      // 4. 渲染個人成長時間軸 (包含一般、獎項、違規標記)
       var ul = document.getElementById('p-timeline'); 
       if (ul) {
         ul.innerHTML = '';
         if (pf.milestones && pf.milestones.length > 0) {
           pf.milestones.forEach(function(item) {
             var li = document.createElement('li'); 
-            
-            // 時間軸樣式判定
             let badgeColor = "bg-primary";
             if (item.type === 'award' || item.type === '🏅 競賽獎項') {
               li.className = 'modal-timeline-item award';
               badgeColor = "bg-warning text-dark";
             } else if (item.type === 'violation' || item.type === '⚠️ 違規紀錄') {
               li.className = 'modal-timeline-item violation';
-              badgeColor = "bg-danger text-white"; // 🔴 違規案件自動變紅章
+              badgeColor = "bg-danger text-white";
             } else {
               li.className = 'modal-timeline-item';
             }
@@ -960,7 +948,7 @@
       
       fetch(url)
         .then(function(response) {
-          if (!response.ok) throw new Error("HTTP 錯誤！狀態碼：" + response.status);
+          if (!response.ok) throw new Error("HTTP 錯誤狀態碼：" + response.status);
           return response.json();
         })
         .then(function(members) {
@@ -968,10 +956,7 @@
           allMembersCached = members; 
           
           var tbody = document.getElementById('admin-tbody'); 
-          if (!tbody) {
-            console.error("找不到 id='admin-tbody' 的表格元素！");
-            return;
-          }
+          if (!tbody) return;
           tbody.innerHTML = '';
           
           if (Array.isArray(members)) {
@@ -991,14 +976,14 @@
         .catch(function(err) {
           showLoading(false);
           console.error("loadAdminData Error:", err);
-          alert("加載全體成員檔案失敗: " + (err.message || err));
         });
     }
 
     function initAdminMemberDropdown() {
-      var selectEl = document.getElementById('adm-member-name'); if (!selectEl) return;
+      var selectEl = document.getElementById('adm-member-name') || document.getElementById('adminSelectMember'); 
+      if (!selectEl) return;
+      
       var url = GAS_WEB_APP_URL + "?action=getAllMemberNames";
-
       fetch(url)
         .then(function(res) { return res.json(); })
         .then(function(res) {
@@ -1012,16 +997,15 @@
             });
           }
         })
-        .catch(function(err) {
-           console.error("加載成員下拉清單失敗: " + err.message);
-        });
+        .catch(function(err) { console.error("加載成員下拉清單失敗: " + err.message); });
     }
 
     function handleAdminFormSubmit(e) {
       if(e && e.preventDefault) e.preventDefault();
-      var submitBtn = document.getElementById('adm-submit-btn'); if (submitBtn && submitBtn.disabled) return;
+      var submitBtn = document.getElementById('adm-submit-btn'); 
+      if (submitBtn && submitBtn.disabled) return;
       
-      var nameEl = document.getElementById('adm-member-name');
+      var nameEl = document.getElementById('adm-member-name') || document.getElementById('adminSelectMember');
       var memberName = nameEl ? nameEl.value : "";
       if(!memberName) {
         alert("請選擇欲修改資料的學生成員！");
@@ -1054,13 +1038,9 @@
         if(submitBtn) { submitBtn.disabled = false; submitBtn.innerHTML = '<i class="fa-solid fa-cloud-arrow-up me-1"></i>確認更新學生成長檔案'; }
         alert(res.message); 
         if (res.success) {  
-          if(document.getElementById('adm-contest-title')) document.getElementById('adm-contest-title').value = ""; 
-          if(document.getElementById('adm-contest-desc')) document.getElementById('adm-contest-desc').value = "";
-          if(document.getElementById('adm-skill-title')) document.getElementById('adm-skill-title').value = ""; 
-          if(document.getElementById('adm-skill-desc')) document.getElementById('adm-skill-desc').value = "";
-          if(document.getElementById('adm-violation-type')) document.getElementById('adm-violation-type').value = "";
-          if(document.getElementById('adm-violation-desc')) document.getElementById('adm-violation-desc').value = "";
-          
+          ['adm-contest-title', 'adm-contest-desc', 'adm-skill-title', 'adm-skill-desc', 'adm-violation-type', 'adm-violation-desc'].forEach(id => {
+            if(document.getElementById(id)) document.getElementById(id).value = "";
+          });
           refreshUserProfileAndDuty();
         }
       })
@@ -1103,21 +1083,21 @@
         if(document.getElementById('borrow-guest-block')) document.getElementById('borrow-guest-block').style.display = 'flex';
       }
       
-      borrowModalObj = bootstrap.Modal.getOrCreateInstance(document.getElementById('borrowModal'));
-      borrowModalObj.show();
+      var modalEl = document.getElementById('borrowModal');
+      if(modalEl) {
+        borrowModalObj = bootstrap.Modal.getOrCreateInstance(modalEl);
+        borrowModalObj.show();
+      }
     }
 
     function handleBorrowSubmit(e) {
-      e.preventDefault();
+      if(e && e.preventDefault) e.preventDefault();
       
       var selectedEquipments = [];
       for (var k = 1; k <= 5; k++) {
         var el = document.getElementById('borrow-eq-' + k);
-        if (el) {
-          var eqVal = el.value;
-          if (eqVal && eqVal.trim() !== "") {
-            selectedEquipments.push(eqVal.trim());
-          }
+        if (el && el.value && el.value.trim() !== "") {
+          selectedEquipments.push(el.value.trim());
         }
       }
 
@@ -1128,11 +1108,12 @@
 
       var finalEquipmentString = selectedEquipments.join('、');
 
+      // 🔴 修正處：全面採用標準 fetch 傳輸，徹底拔除不存的 google.script.run
       var payload = {
         action: "submitEquipmentBorrow",
         identity: loggedInUserSession ? "成員" : "訪客", 
-        name: loggedInUserSession ? loggedInUserSession.name : (document.getElementById('borrow-name') ? document.getElementById('borrow-name').value : ""),
-        className: loggedInUserSession ? "電視台" : (document.getElementById('borrow-class') ? document.getElementById('borrow-class').value : ""), 
+        name: loggedInUserSession ? loggedInUserSession.name : (document.getElementById('borrow-name') ? document.getElementById('borrow-name').value : "訪客"),
+        className: loggedInUserSession ? "電視台" : (document.getElementById('borrow-class') ? document.getElementById('borrow-class').value : "外部人員"), 
         phone: loggedInUserSession ? "N/A" : (document.getElementById('borrow-phone') ? document.getElementById('borrow-phone').value : ""),
         equipment: finalEquipmentString, 
         date: document.getElementById('borrow-date') ? document.getElementById('borrow-date').value : "", 
@@ -1141,8 +1122,11 @@
       };
 
       showLoading(true); 
-      borrowModalObj = bootstrap.Modal.getOrCreateInstance(document.getElementById('borrowModal'));
-      borrowModalObj.hide();
+      var modalEl = document.getElementById('borrowModal');
+      if(modalEl) {
+        borrowModalObj = bootstrap.Modal.getOrCreateInstance(modalEl);
+        borrowModalObj.hide();
+      }
 
       fetch(GAS_WEB_APP_URL, {
         method: "POST",
@@ -1169,10 +1153,7 @@
       recordsBody.innerHTML = '<tr><td colspan="9" class="text-center"><div class="spinner-border spinner-border-sm text-secondary me-2"></div>資料載入中...</td></tr>';
     
       fetch(GAS_WEB_APP_URL + "?action=getBorrowRecords")
-        .then(function(response) {
-          if (!response.ok) throw new Error("網路回應不正常");
-          return response.json();
-        })
+        .then(function(response) { return response.json(); })
         .then(function(records) {
           var html = "";
           if (!records || records.length === 0 || (records.success === false)) {
@@ -1197,7 +1178,6 @@
         })
         .catch(function(err) {
           recordsBody.innerHTML = '<tr><td colspan="9" class="text-center text-danger">載入失敗。</td></tr>';
-          alert("載入借用紀錄失敗：" + (err.message || err));
         });
     }
 
@@ -1229,19 +1209,13 @@
       if(document.getElementById('old-late')) document.getElementById('old-late').innerText = pf.late || 0;
       if(document.getElementById('old-absent')) document.getElementById('old-absent').innerText = pf.absent || 0;
       
-      if(document.getElementById('add-learn')) document.getElementById('add-learn').value = 0; 
-      if(document.getElementById('add-activity')) document.getElementById('add-activity').value = 0; 
-      if(document.getElementById('add-contest')) document.getElementById('add-contest').value = 0; 
-      if(document.getElementById('add-skills')) document.getElementById('add-skills').value = 0;
-      if(document.getElementById('add-late')) document.getElementById('add-late').value = 0;
-      if(document.getElementById('add-absent')) document.getElementById('add-absent').value = 0;
+      ['add-learn', 'add-activity', 'add-contest', 'add-skills', 'add-late', 'add-absent'].forEach(id => {
+        if(document.getElementById(id)) document.getElementById(id).value = 0;
+      });
       
-      if (document.getElementById('adm-violation-type')) document.getElementById('adm-violation-type').value = '';
-      if (document.getElementById('adm-violation-desc')) document.getElementById('adm-violation-desc').value = '';
-      if (document.getElementById('adm-contest-title')) document.getElementById('adm-contest-title').value = '';
-      if (document.getElementById('adm-contest-desc')) document.getElementById('adm-contest-desc').value = '';
-      if (document.getElementById('adm-skill-title')) document.getElementById('adm-skill-title').value = '';
-      if (document.getElementById('adm-skill-desc')) document.getElementById('adm-skill-desc').value = '';
+      ['adm-violation-type', 'adm-violation-desc', 'adm-contest-title', 'adm-contest-desc', 'adm-skill-title', 'adm-skill-desc'].forEach(id => {
+        if(document.getElementById(id)) document.getElementById(id).value = '';
+      });
 
       currentOldMilestones = pf.milestones || [];
       renderOldMilestonesHistory();
@@ -1249,19 +1223,23 @@
       if(document.getElementById('new-milestones-container')) document.getElementById('new-milestones-container').innerHTML = '';
       calcPortfolioTotals();
       
-      portfolioModalObj = bootstrap.Modal.getOrCreateInstance(document.getElementById('portfolioModal'));
-      portfolioModalObj.show();
+      var modalEl = document.getElementById('portfolioModal');
+      if(modalEl) {
+        portfolioModalObj = bootstrap.Modal.getOrCreateInstance(modalEl);
+        portfolioModalObj.show();
+      }
     }
 
     function savePortfolioChanges() {
-      var studentId = document.getElementById('edit-student-id') ? document.getElementById('edit-student-id').value : "";
+      var idEl = document.getElementById('edit-student-id');
+      var studentId = idEl ? idEl.value : "";
       if (!studentId) return;
     
       var totalLearn    = document.getElementById('total-learn') ? (parseInt(document.getElementById('total-learn').innerText) || 0) : 0;
       var totalActivity = document.getElementById('total-activity') ? (parseInt(document.getElementById('total-activity').innerText) || 0) : 0;
       var totalContest  = document.getElementById('total-contest') ? (parseInt(document.getElementById('total-contest').innerText) || 0) : 0;
       var totalSkills   = document.getElementById('total-skills') ? (parseInt(document.getElementById('total-skills').innerText) || 0) : 0;
-      var totalLate      = document.getElementById('total-late') ? (parseInt(document.getElementById('total-late').innerText) || 0) : 0;
+      var totalLate     = document.getElementById('total-late') ? (parseInt(document.getElementById('total-late').innerText) || 0) : 0;
       var totalAbsent   = document.getElementById('total-absent') ? (parseInt(document.getElementById('total-absent').innerText) || 0) : 0;
     
       var updatedMilestones = [].concat(currentOldMilestones);
@@ -1278,7 +1256,6 @@
       var vDesc = document.getElementById('adm-violation-desc') ? document.getElementById('adm-violation-desc').value.trim() : "";
       if(vType) updatedMilestones.push({ type: "⚠️ 違規紀錄", title: vType, desc: vDesc, date: new Date().toLocaleDateString() });
     
-      // 讀取動態加入的新里程碑資料列
       var newRows = document.querySelectorAll('.milestone-new-row');
       newRows.forEach(function(row) {
         var rDate = row.querySelector('.new-ms-date') ? row.querySelector('.new-ms-date').value.trim() : "";
@@ -1288,12 +1265,7 @@
         
         if (rTitle) {
           var typeStr = (rType === 'award') ? "🏅 競賽獎項" : "一般經歷";
-          updatedMilestones.push({
-            type: typeStr,
-            title: rTitle,
-            desc: rDesc,
-            date: rDate || new Date().toLocaleDateString()
-          });
+          updatedMilestones.push({ type: typeStr, title: rTitle, desc: rDesc, date: rDate || new Date().toLocaleDateString() });
         }
       });
 
@@ -1322,16 +1294,13 @@
         headers: { "Content-Type": "text/plain;charset=utf-8" },
         body: JSON.stringify(payload)
       })
-      .then(function(response) {
-        if (!response.ok) throw new Error("網路回應不正常");
-        return response.json();
-      })
+      .then(function(response) { return response.json(); })
       .then(function(res) {
         if(res.success) {
           alert(res.message);
           var member = allMembersCached.find(function(i) { return i.studentId === studentId; });
           if(member) { member.portfolio = newPortfolioObj; }
-          portfolioModalObj.hide();
+          if(portfolioModalObj) portfolioModalObj.hide();
           loadAdminData();
         } else {
           alert(res.message);
@@ -1341,61 +1310,6 @@
       .catch(function(err) {
         alert("連線失敗：" + err.message);
         if(submitBtn) { submitBtn.disabled = false; submitBtn.innerHTML = '確認儲存修改'; }
-      });
-    }
-
-    function submitAdminUpdate() {
-      var memberName = document.getElementById("adminSelectMember") ? document.getElementById("adminSelectMember").value : ""; 
-      var learnHours = document.getElementById("adminLearnHours") ? document.getElementById("adminLearnHours").value : "";
-      var activityHours = document.getElementById("adminActivityHours") ? document.getElementById("adminActivityHours").value : "";
-      var newContestTitle = document.getElementById("adminContestTitle") ? document.getElementById("adminContestTitle").value : "";
-      var newContestDesc = document.getElementById("adminContestDesc") ? document.getElementById("adminContestDesc").value : "";
-      var newSkillTitle = document.getElementById("adminSkillTitle") ? document.getElementById("adminSkillTitle").value : "";
-      var newSkillDesc = document.getElementById("adminSkillDesc") ? document.getElementById("adminSkillDesc").value : "";
-      var violationType = document.getElementById("adminViolationType") ? document.getElementById("adminViolationType").value : "";
-      var violationDesc = document.getElementById("adminViolationDesc") ? document.getElementById("adminViolationDesc").value : "";
-
-      if (!memberName) {
-        alert("請先選擇要調整的成員！");
-        return;
-      }
-
-      showLoading(true);
-
-      var adminPayload = {
-        action: "updateMemberPortfolioByAdmin",
-        memberName: memberName,
-        learnHours: learnHours,
-        activityHours: activityHours,
-        newContestTitle: newContestTitle,
-        newContestDesc: newContestDesc,
-        newSkillTitle: newSkillTitle,
-        newSkillDesc: newSkillDesc,
-        violationType: violationType,
-        violationDesc: violationDesc
-      };
-
-      fetch(GAS_WEB_APP_URL, {
-        method: "POST",
-        mode: "cors",
-        headers: { "Content-Type": "text/plain;charset=utf-8" },
-        body: JSON.stringify(adminPayload)
-      })
-      .then(function(res) { return res.json(); })
-      .then(function(response) {
-        showLoading(false);
-        if (response.success) {
-          alert(response.message);
-          if(document.getElementById("adminViolationType")) document.getElementById("adminViolationType").value = "";
-          if(document.getElementById("adminViolationDesc")) document.getElementById("adminViolationDesc").value = "";
-          loadAdminData();
-        } else {
-          alert("更新失敗：" + response.message);
-        }
-      })
-      .catch(function(err) {
-        showLoading(false);
-        alert("連線程序異常：" + err.message);
       });
     }
 
@@ -1465,36 +1379,51 @@
         var addValEl = document.getElementById('add-' + type);
         var totalValEl = document.getElementById('total-' + type);
         
-        if (oldValEl && addValEl && totalValEl) {
+        if (oldValEl && totalValEl) {
           var oldVal = parseInt(oldValEl.innerText) || 0;
-          var addVal = parseInt(addValEl.value) || 0;
+          var addVal = (addValEl) ? (parseInt(addValEl.value) || 0) : 0;
           totalValEl.innerText = Math.max(0, oldVal + addVal);
         }
       });
     }
 
     function closePortfolioModal() { 
-      portfolioModalObj = bootstrap.Modal.getOrCreateInstance(document.getElementById('portfolioModal'));
-      portfolioModalObj.hide(); 
+      var modalEl = document.getElementById('portfolioModal');
+      if(modalEl) {
+        portfolioModalObj = bootstrap.Modal.getOrCreateInstance(modalEl);
+        portfolioModalObj.hide(); 
+      }
     }
 
     // ==========================================
     // 成員註冊與審批模組 (Registration & Approval)
     // ==========================================
     function handleRegister(e) {
-      e.preventDefault();
+      if(e && e.preventDefault) e.preventDefault();
+      
+      // 確保欄位存在防禦
+      var idEl = document.getElementById('reg-id');
+      var pwdEl = document.getElementById('reg-pwd');
+      var nameEl = document.getElementById('reg-name');
+      if(!idEl || !nameEl) {
+        alert("註冊表單欄位不完整，無法提交。");
+        return;
+      }
+
       var member = {
-        studentId: document.getElementById('reg-id').value, 
-        password: document.getElementById('reg-pwd').value, 
-        name: document.getElementById('reg-name').value, 
-        className: document.getElementById('reg-class').value, 
-        phone: document.getElementById('reg-phone').value,
-        parentName: document.getElementById('reg-pname').value, 
-        parentPhone: document.getElementById('reg-pphone').value, 
-        relationship: document.getElementById('reg-prel').value, 
+        studentId: idEl.value, 
+        password: pwdEl ? pwdEl.value : "123456", 
+        name: nameEl.value, 
+        className: document.getElementById('reg-class') ? document.getElementById('reg-class').value : "", 
+        phone: document.getElementById('reg-phone') ? document.getElementById('reg-phone').value : "",
+        parentName: document.getElementById('reg-pname') ? document.getElementById('reg-pname').value : "", 
+        parentPhone: document.getElementById('reg-pphone') ? document.getElementById('reg-pphone').value : "", 
+        relationship: document.getElementById('reg-prel') ? document.getElementById('reg-prel').value : "", 
         photoBase64: null
       };
-      var file = document.getElementById('reg-photo').files[0];
+
+      var photoEl = document.getElementById('reg-photo');
+      var file = photoEl ? photoEl.files[0] : null;
       if(file) {
         var reader = new FileReader(); 
         reader.onload = function(ev){ member.photoBase64 = ev.target.result; doReg(member); }; 
@@ -1506,10 +1435,7 @@
     
     function doReg(m) { 
       showLoading(true); 
-      var payload = {
-        action: "registerMember",
-        memberData: m
-      };
+      var payload = { action: "registerMember", memberData: m };
 
       fetch(GAS_WEB_APP_URL, {
         method: "POST",
@@ -1532,52 +1458,30 @@
     function handleApprove(id) { 
       if(confirm('核准此成員加入？')){ 
         showLoading(true); 
-        var payload = {
-          action: "approveMember",
-          studentId: id
-        };
-
         fetch(GAS_WEB_APP_URL, {
           method: "POST",
           mode: "cors",
           headers: { "Content-Type": "text/plain;charset=utf-8" },
-          body: JSON.stringify(payload)
+          body: JSON.stringify({ action: "approveMember", studentId: id })
         })
         .then(function(res) { return res.json(); })
-        .then(function(res) {
-          alert(res.message || "審批成功！");
-          loadAdminData(); 
-        })
-        .catch(function(err){ 
-          showLoading(false); 
-          alert("審批失敗：" + err.message); 
-        });
+        .then(function(res) { alert(res.message || "審批成功！"); loadAdminData(); })
+        .catch(function(err){ showLoading(false); alert("審批失敗：" + err.message); });
       } 
     }
     
     function handleDelete(id) { 
       if(confirm('確定將此成員從名冊中移出刪除？')){ 
         showLoading(true); 
-        var payload = {
-          action: "deleteMember",
-          studentId: id
-        };
-
         fetch(GAS_WEB_APP_URL, {
           method: "POST",
           mode: "cors",
           headers: { "Content-Type": "text/plain;charset=utf-8" },
-          body: JSON.stringify(payload)
+          body: JSON.stringify({ action: "deleteMember", studentId: id })
         })
         .then(function(res) { return res.json(); })
-        .then(function(res) {
-          alert(res.message || "成員已成功刪除！");
-          loadAdminData(); 
-        })
-        .catch(function(err){ 
-          showLoading(false); 
-          alert("刪除失敗：" + err.message); 
-        });
+        .then(function(res) { alert(res.message || "成員已成功刪除！"); loadAdminData(); })
+        .catch(function(err){ showLoading(false); alert("刪除失敗：" + err.message); });
       } 
     }
 
@@ -1585,65 +1489,20 @@
     document.addEventListener("DOMContentLoaded", function() { 
       showLoading(false); 
       
-      // 自動綁定註冊表單事件
-      var regForm = document.getElementById('registerForm');
-      if (regForm) {
-        regForm.addEventListener('submit', handleRegister);
-      }
+      var regForm = document.getElementById('registerForm') || document.getElementById('reg-form');
+      if (regForm) regForm.addEventListener('submit', handleRegister);
       
-      // 自動綁定快速後台表單事件
-      var adminForm = document.getElementById('adminFastForm');
-      if (adminForm) {
-        adminForm.addEventListener('submit', handleAdminFormSubmit);
-      }
+      var adminForm = document.getElementById('adminFastForm') || document.getElementById('admin-form');
+      if (adminForm) adminForm.addEventListener('submit', handleAdminFormSubmit);
+
+      var borrowForm = document.getElementById('borrow-form');
+      if (borrowForm) borrowForm.addEventListener('submit', handleBorrowSubmit);
+      
+      var loginForm = document.getElementById('login-form');
+      if (loginForm) loginForm.addEventListener('submit', handleLogin);
     });
-
-    // 封裝以保留未來相容舊版結構呼叫的輔助函式
-    function triggerLegacyAdminUpdate() {
-      var selectMemEl = document.getElementById("selectMember");
-      var learnEl = document.getElementById("inputLearnHours");
-      var actEl = document.getElementById("inputActivityHours");
-      var violTypeEl = document.getElementById("violationTypeSelect");
-      var violDescEl = document.getElementById("violationDescTextarea");
-
-      if (!selectMemEl || !selectMemEl.value) {
-        console.warn("未選擇成員，跳過舊版測試排程");
-        return;
-      }
-
-      var payload = {
-        action: "updateMemberPortfolioByAdmin",
-        memberName: selectMemEl.value,
-        learnHours: learnEl ? learnEl.value : 0,
-        activityHours: actEl ? actEl.value : 0,
-        newContestTitle: "", 
-        newContestDesc: "",
-        newSkillTitle: "",
-        newSkillDesc: "",
-        violationType: violTypeEl ? violTypeEl.value : "", 
-        violationDesc: violDescEl ? violDescEl.value : "" 
-      };
-
-      fetch(GAS_WEB_APP_URL, {
-        method: "POST",
-        mode: "cors",
-        headers: { "Content-Type": "text/plain;charset=utf-8" },
-        body: JSON.stringify(payload)
-      })
-      .then(res => res.json())
-      .then(res => alert(res.message))
-      .catch(err => console.error("同步失敗:", err));
-    }
-
-    function getTimelineBadgeClass(type) {
-      if (type === "award" || type === "🏅 競賽獎項") return "bg-warning text-dark";
-      if (type === "violation" || type === "⚠️ 違規紀錄") return "bg-danger text-white"; 
-      return "bg-primary text-white";
-    }
-
   </script>
   <!-- Bootstrap 5 JS Bundle -->
   <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/js/bootstrap.bundle.min.js"></script>
-
 </body>
 </html>
