@@ -1,0 +1,1910 @@
+<!DOCTYPE html>
+<html lang="zh-TW">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>校園電視台綜合管理系統</title>
+  <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/css/bootstrap.min.css" rel="stylesheet">
+  <link href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css" rel="stylesheet">
+  
+  <style>
+    :root {
+      --sidebar-width: 260px;
+      --primary-color: #2c3e50;
+      --accent-color: #18bc9c;
+    }
+    
+    body {
+      font-family: "Helvetica Neue", Arial, "Noto Sans TC", sans-serif;
+      background-color: #f8f9fa;
+      overflow-x: hidden;
+    }
+
+    /* 全域 Loading 遮罩 */
+    #loading-mask {
+      position: fixed;
+      top: 0; left: 0; width: 100vw; height: 100vh;
+      background: rgba(255, 255, 255, 0.85);
+      z-index: 9999;
+      display: flex;
+      flex-direction: column;
+      justify-content: center;
+      align-items: center;
+    }
+
+    /* 側邊欄與主架構 */
+    .sidebar {
+      width: var(--sidebar-width);
+      height: 100vh;
+      position: fixed;
+      top: 0; left: 0;
+      background-color: var(--primary-color);
+      color: #fff;
+      z-index: 100;
+      transition: all 0.3s;
+    }
+    
+    .main-content {
+      margin-left: var(--sidebar-width);
+      padding: 30px;
+      min-height: 100vh;
+      transition: all 0.3s;
+    }
+
+    .sidebar-brand {
+      padding: 20px;
+      font-size: 1.25rem;
+      font-weight: bold;
+      background: rgba(0,0,0,0.2);
+      text-align: center;
+    }
+
+    .sidebar-menu {
+      padding: 15px 0;
+    }
+
+    .sidebar-menu a {
+      display: flex;
+      align-items: center;
+      padding: 12px 25px;
+      color: #ecf0f1;
+      text-decoration: none;
+      transition: all 0.2s;
+      cursor: pointer;
+    }
+
+    .sidebar-menu a:hover, .sidebar-menu a.active {
+      background-color: var(--accent-color);
+      color: white;
+    }
+
+    .sidebar-menu a i {
+      margin-right: 12px;
+      width: 20px;
+      text-align: center;
+    }
+
+    /* 視圖區塊控制 */
+    .view-section {
+      display: none;
+    }
+    .view-section.active {
+      display: block;
+    }
+
+    /* 成長檔案與時間軸樣式 */
+    .profile-card {
+      background: white;
+      border-radius: 15px;
+      box-shadow: 0 4px 15px rgba(0,0,0,0.05);
+    }
+
+    .table-img {
+      width: 45px;
+      height: 45px;
+      object-fit: cover;
+      border-radius: 50%;
+    }
+
+    .modal-timeline-container {
+      list-style: none;
+      position: relative;
+      padding-left: 20px;
+    }
+    .modal-timeline-container::before {
+      content: '';
+      position: absolute;
+      left: 5px; top: 0; bottom: 0;
+      width: 2px; background: #e9ecef;
+    }
+    .modal-timeline-item {
+      position: relative;
+      margin-bottom: 20px;
+    }
+    .modal-timeline-item::before {
+      content: '';
+      position: absolute;
+      left: -19px; top: 4px;
+      width: 10px; height: 10px;
+      border-radius: 50%; background: #0d6efd;
+    }
+    .modal-timeline-item.award::before {
+      background: #ffc107;
+      box-shadow: 0 0 0 3px rgba(255,193,7,0.3);
+    }
+    .modal-timeline-date {
+      font-size: 0.75rem;
+      color: #6c757d;
+      font-weight: bold;
+    }
+
+    /* 🏆 問題1優化：高密集成員與器材借用表格專屬壓縮排版 🏆 */
+    .table-responsive-compact {
+      width: 100%;
+      overflow-x: auto;
+      -webkit-overflow-scrolling: touch;
+      background: #ffffff;
+      border-radius: 8px;
+      box-shadow: 0 2px 8px rgba(0,0,0,0.04);
+    }
+    .table-compact {
+      font-size: 0.85rem !important; /* 全體縮小字體，確保一版塞下 */
+      white-space: nowrap;          /* 預設不隨意換行 */
+      margin-bottom: 0;
+    }
+    .table-compact th {
+      background-color: #f1f4f6 !important;
+      color: #34495e !important;
+      font-weight: 600 !important;
+      padding: 8px 10px !important;
+      border-bottom: 2px solid #dee2e6 !important;
+    }
+    .table-compact td {
+      padding: 8px 10px !important;
+      vertical-align: middle !important;
+    }
+    /* 彈性換行欄位：允許長字串如時間與器材在限定寬度內自動折行 */
+    .cell-wrap-text {
+      white-space: normal !important;
+      word-break: break-all !important;
+      min-width: 130px;
+      max-width: 220px;
+    }
+    .cell-time {
+      min-width: 140px;
+    }
+
+    .btn-xs {
+      padding: 1px 5px;
+      font-size: 0.75rem;
+      border-radius: 3px;
+    }
+
+    .modal-timeline-item.award::before {
+      background: #ffc107;
+      box-shadow: 0 0 0 3px rgba(255,193,7,0.3);
+    }
+    /* 🔥 新增：違規紀錄時間軸紅色樣式 */
+    .modal-timeline-item.violation::before {
+      background: #dc3545;
+      box-shadow: 0 0 0 3px rgba(220,53,69,0.3);
+    }
+
+    .modal-timeline-item.violation::before {
+      background: #dc3545 !important; /* Bootstrap 經典紅色 */
+      box-shadow: 0 0 0 3px rgba(220, 53, 69, 0.3) !important;
+    }
+  </style>
+</head>
+<body>
+
+  <!-- 全域讀取特效遮罩 -->
+  <div id="loading-mask">
+    <div class="spinner-border text-primary shadow" style="width: 3rem; height: 3rem;" role="status"></div>
+    <span class="mt-3 fw-bold text-secondary">系統數據傳輸中，請稍候...</span>
+  </div>
+
+  <!-- 側邊導覽列 -->
+  <div class="sidebar">
+    <div class="sidebar-brand">
+      <i class="fa-solid fa-tv me-2"></i>校園電視台系統
+    </div>
+    <div class="sidebar-menu">
+      <a id="menu-login" onclick="switchView('login-view')" class="active"><i class="fa-solid fa-right-to-bracket"></i>帳號驗證登入</a>
+      <a id="menu-register" onclick="switchView('register-view')"><i class="fa-solid fa-user-plus"></i>新成員申請註冊</a>
+      <a id="menu-dashboard" onclick="switchView('member-dashboard-view')"><i class="fa-solid fa-chart-line"></i>個人專屬檔案</a>
+      <a id="menu-duty" onclick="switchView('duty-table-view')"><i class="fa-solid fa-calendar-check"></i>活動值日簽到</a>
+      <a id="menu-borrow" onclick="switchView('borrow-view')"><i class="fa-solid fa-toolbox"></i>器材借用綜合表</a>
+      <a id="menu-admin" onclick="switchView('admin-panel-view')" style="border-top: 1px solid rgba(255,255,255,0.1);"><i class="fa-solid fa-user-shield"></i>高階管理員控制台</a>
+    </div>
+  </div>
+
+  <!-- 主內容顯示區 -->
+  <div class="main-content">
+    <!-- 頂部靜態抬頭列 -->
+    <div class="d-flex justify-content-between align-items-center mb-4 pb-3 border-bottom">
+      <h3 id="page-title" class="fw-bold text-dark mb-0">歡迎登入系統</h3>
+      <div>
+        <span id="user-tag" class="badge bg-secondary p-2 me-2" style="display:none; font-size: 0.9rem;"></span>
+        <button id="logout-btn" class="btn btn-danger btn-sm text-white fw-bold" onclick="logout()" style="display:none;"><i class="fa-solid fa-power-off me-1"></i>登出</button>
+      </div>
+    </div>
+
+    <!-- 區塊一：登入視圖 -->
+    <div id="login-view" class="view-section active">
+      <div class="row justify-content-center pt-4">
+        <div class="col-md-5">
+          <div class="card shadow border-0 p-4 rounded-4">
+            <div class="text-center mb-4">
+              <div class="bg-primary text-white d-inline-block p-3 rounded-circle mb-2"><i class="fa-solid fa-lock fa-2xl"></i></div>
+              <h4 class="fw-bold text-dark">身分安全驗證</h4>
+              <p class="text-muted small">請輸入學號與系統密碼以啟用完整權限</p>
+            </div>
+            <form id="login-form" onsubmit="handleLoginSubmit(event)">
+              <div class="mb-3">
+                <label class="form-label fw-bold">帳號</label>
+                <div class="input-group"><span class="input-group-text"><i class="fa-solid fa-user"></i></span><input type="text" id="login-id" class="form-control" required placeholder="請輸入帳號名稱"></div>
+              </div>
+              <div class="mb-4">
+                <label class="form-label fw-bold">安全存取密碼</label>
+                <div class="input-group"><span class="input-group-text"><i class="fa-solid fa-key"></i></span><input type="password" id="login-pwd" class="form-control" required placeholder="請輸入密碼"></div>
+              </div>
+              <button type="submit" class="btn btn-primary w-100 py-2 fw-bold shadow-sm">進行雙向安全驗證</button>
+            </form>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <!-- 區塊二：成員註冊視圖 -->
+    <div id="register-view" class="view-section">
+      <div class="row justify-content-center">
+        <div class="col-md-8">
+          <div class="card shadow border-0 p-4 rounded-4">
+            <h4 class="fw-bold text-dark mb-3"><i class="fa-solid fa-user-plus me-2 text-success"></i>新成員資料申請註冊</h4>
+            <form id="register-form" onsubmit="handleRegister(event)">
+              <div class="row g-3">
+                <div class="col-md-6"><label class="form-label small fw-bold">學號 (作為登入帳號)</label><input type="text" id="reg-id" class="form-control" required></div>
+                <div class="col-md-6"><label class="form-label small fw-bold">設定密碼</label><input type="password" id="reg-pwd" class="form-control" required></div>
+                <div class="col-md-4"><label class="form-label small fw-bold">真實姓名</label><input type="text" id="reg-name" class="form-control" required></div>
+                <div class="col-md-4"><label class="form-label small fw-bold">班級座號 (例: 高一A 01號)</label><input type="text" id="reg-class" class="form-control" required></div>
+                <div class="col-md-4"><label class="form-label small fw-bold">個人聯絡電話</label><input type="tel" id="reg-phone" class="form-control" required></div>
+                <div class="col-md-4"><label class="form-label small fw-bold">家長姓名</label><input type="text" id="reg-pname" class="form-control" required></div>
+                <div class="col-md-4"><label class="form-label small fw-bold">與學生關係</label><input type="text" id="reg-prel" class="form-control" placeholder="如: 父親、母親" required></div>
+                <div class="col-md-4"><label class="form-label small fw-bold">家長緊急聯絡電話</label><input type="tel" id="reg-pphone" class="form-control" required></div>
+                <div class="col-md-12">
+                  <label class="form-label small fw-bold">個人大頭照辨識照片</label>
+                  <input type="file" id="reg-photo" class="form-control" accept="image/*" required>
+                  <div class="form-text">請上傳清晰個人五官照片，供後台審查與產出檔案頭像。</div>
+                </div>
+              </div>
+              <button type="submit" class="btn btn-success w-100 mt-4 py-2 fw-bold shadow-sm">提交新成員資格審查申請</button>
+            </form>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <!-- 區塊三：內部成員儀表板 -->
+    <div id="member-dashboard-view" class="view-section">
+      <div id="member-dashboard-alert" class="alert alert-warning shadow-sm"><i class="fa-solid fa-triangle-exclamation me-2"></i>請先完成【帳號驗證登入】以解鎖您的成長歷程檔案。</div>
+      <div id="member-dashboard-content" style="display:none;">
+        <div class="row g-4">
+          <div class="col-md-4">
+            <div class="profile-card p-4 text-center">
+              <img id="m-photo" src="https://via.placeholder.com/150" class="rounded-circle shadow-sm border border-4 border-white mb-3" style="width:130px; height:130px; object-fit:cover;">
+              <h4 id="m-name" class="fw-bold text-dark mb-1">---</h4>
+              <p id="m-class" class="text-muted small mb-2">---</p>
+              <div id="p-stars" class="text-warning mb-3"></div>
+              <div class="border-top pt-3 text-start">
+                <p class="small mb-1 text-muted">帳號代碼：<span id="m-id" class="text-dark fw-bold">--</span></p>
+                <p class="small mb-1 text-muted">聯絡電話：<span id="m-phone" class="text-dark">--</span></p>
+                <p class="small mb-1 text-muted">緊急家長：<span id="m-pname" class="text-dark">--</span> (<span id="m-prel" class="text-dark">--</span>)</p>
+                <p class="small mb-0 text-muted">家長電話：<span id="m-pphone" class="text-dark">--</span></p>
+              </div>
+            </div>
+          </div>
+          <div class="col-md-8">
+            <!-- 🌟 時數統計網格：欄位皆調整為 col-12 col-md-4 以達到一行三項 -->
+            <div class="row g-3 text-center mb-4">
+              <!-- 第一行：研習、活動、競賽 -->
+              <div class="col-12 col-md-4"><div class="p-3 bg-white rounded-3 shadow-sm border-start border-4 border-primary"><small class="text-muted d-block mb-1">研習時數</small><h3 id="stat-learn" class="fw-bold text-primary mb-0">0 小時</h3></div></div>
+              <div class="col-12 col-md-4"><div class="p-3 bg-white rounded-3 shadow-sm border-start border-4 border-success"><small class="text-muted d-block mb-1">值日次數</small><h3 id="stat-activity" class="fw-bold text-success mb-0">0 次</h3></div></div>
+              <div class="col-12 col-md-4"><div class="p-3 bg-white rounded-3 shadow-sm border-start border-4 border-warning"><small class="text-muted d-block mb-1">參賽次數</small><h3 id="stat-contest" class="fw-bold text-warning mb-0">0 次</h3></div></div>
+              
+              <!-- 第二行：核心技術、遲到（違規）、缺席（違規） -->
+              <div class="col-12 col-md-4"><div class="p-3 bg-white rounded-3 shadow-sm border-start border-4 border-info"><small class="text-muted d-block mb-1">專業技術</small><h3 id="stat-skills" class="fw-bold text-info mb-0">0 項</h3></div></div>
+              
+              <!-- 🔥 遲到次數（優化：改為淺粉紅背景以區分違規） -->
+              <div class="col-12 col-md-4"><div class="p-3 rounded-3 shadow-sm border-start border-4 border-secondary" style="background-color: #fff0f2;"><small class="text-muted d-block mb-1">遲到次數</small><h3 id="stat-late" class="fw-bold text-secondary mb-0">0 次</h3></div></div>
+              
+              <!-- 🔥 缺席次數（優化：改為淺粉紅背景以區分違規） -->
+              <div class="col-12 col-md-4"><div class="p-3 rounded-3 shadow-sm border-start border-4 border-danger" style="background-color: #fff0f2;"><small class="text-muted d-block mb-1">缺席次數</small><h3 id="stat-absent" class="fw-bold text-danger mb-0">0 次</h3></div></div>
+            </div>
+            
+            <div class="card border-0 shadow-sm p-4 rounded-3">
+              <h5 class="fw-bold text-dark mb-3"><i class="fa-solid fa-timeline me-2 text-primary"></i>個人成長里程碑時間軸</h5>
+              <ul id="p-timeline" class="modal-timeline-container ps-2 text-start"></ul>
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <!-- 區塊四：活動值日與簽到大廳 -->
+    <div id="duty-table-view" class="view-section">
+      <div class="card border-0 shadow-sm p-4 rounded-3">
+        <div class="d-flex justify-content-between align-items-center mb-3">
+          <h5 class="fw-bold text-dark mb-0"><i class="fa-solid fa-list-check me-2 text-success"></i>本學期最新派發活動排班表</h5>
+          <button class="btn btn-sm btn-outline-primary fw-bold" onclick="refreshUserProfileAndDuty()"><i class="fa-solid fa-rotate me-1"></i>手動同步最新進度</button>
+        </div>
+        <div class="table-responsive">
+          <table class="table table-hover align-middle text-center border">
+            <thead class="table-light">
+              <tr>
+                <th style="width:15%">派發日期/時間</th>
+                <th style="width:25%" class="text-start">活動名稱</th>
+                <th style="width:12%">活動負責人</th>
+                <th style="width:20%" class="text-start">現場拍攝值日生 (簽到狀態)</th>
+                <th style="width:18%">後期剪輯製片生</th>
+                <th style="width:10%">實況</th>
+              </tr>
+            </thead>
+            <tbody id="duty-tbody">
+              <tr><td colspan="6" class="text-muted py-3">系統初始化中...</td></tr>
+            </tbody>
+          </table>
+        </div>
+      </div>
+    </div>
+
+    <!-- 區塊五：器材借用大廳 -->
+    <div id="borrow-view" class="view-section">
+      <div class="row g-4">
+        <div class="col-md-4">
+          <div class="card border-0 shadow p-4 rounded-4 bg-white">
+            <div class="text-center mb-3">
+              <div class="bg-success text-white d-inline-block p-3 rounded-circle mb-2"><i class="fa-solid fa-toolbox fa-xl"></i></div>
+              <h5 class="fw-bold">填寫器材出借登記表</h5>
+              <p class="text-muted small">無論內部成員或校外訪客皆須在此實名登記</p>
+            </div>
+            <button class="btn btn-success w-100 py-2 fw-bold shadow-sm" onclick="openBorrowModal()"><i class="fa-solid fa-pen-to-square me-2"></i>開啟出借登記表單</button>
+          </div>
+        </div>
+        
+        <!-- 🏆 問題1修正：優化管理員查看借用器材格式，保證一版看完 🏆 -->
+        <div class="col-md-8" id="adminBorrowSection" style="display:none;">
+          <div class="card border-0 shadow-sm p-4 rounded-4 bg-white">
+            <div class="d-flex justify-content-between align-items-center mb-3">
+              <h5 class="fw-bold text-dark mb-0"><i class="fa-solid fa-clock-history me-2 text-dark"></i>校園器材動態出借管理紀錄總覽</h5>
+              <button class="btn btn-xs btn-primary px-2 py-1" onclick="loadBorrowRecords()"><i class="fa-solid fa-arrows-rotate me-1"></i>重新整理</button>
+            </div>
+            <div class="table-responsive-compact">
+              <table class="table table-striped table-hover table-compact align-middle border text-center">
+                <thead>
+                  <tr>
+                    <th class="cell-time">登記時間</th>
+                    <th>身份</th>
+                    <th>借用人</th>
+                    <th>單位/班級</th>
+                    <th>聯絡電話</th>
+                    <th class="cell-wrap-text">出借器材項目 (多件)</th>
+                    <th>借用日期</th>
+                    <th>開始時間</th>
+                    <th>借用時長</th>
+                  </tr>
+                </thead>
+                <tbody id="borrowRecordsBody">
+                  <tr><td colspan="9" class="text-center text-muted">正在載入試算表大數據庫...</td></tr>
+                </tbody>
+              </table>
+            </div>
+          </div>
+        </div>
+        
+      </div>
+    </div>
+
+    <!-- 區塊六：高階管理員主控台 -->
+    <div id="admin-panel-view" class="view-section">
+    <div id="admin-panel-alert" class="alert alert-danger shadow-sm"><i class="fa-solid fa-shield-halved me-2"></i>本區塊具高階安全權限。請先以【管理員密鑰】驗證登入。</div>
+    <div id="admin-panel-content" style="display:none;">
+      
+      <!-- 🌟 優化：將原本的左右分欄改為排班大卡片，乾淨俐落 -->
+      <div class="card border-0 shadow-sm p-4 rounded-3 bg-white mb-4">
+        <div class="d-flex justify-content-between align-items-center mb-3">
+          <div>
+            <h5 class="fw-bold text-dark mb-1"><i class="fa-solid fa-calendar-plus me-2 text-success"></i>發布全新活動值日排班排程</h5>
+            <p class="text-muted small mb-0">發布後，系統將自動派發給對應的現場拍攝人員與後期剪輯人員，並即時在值日生大廳與個人檔案連動更新。</p>
+          </div>
+          <div>
+            <button class="btn btn-success px-4 py-2 fw-bold shadow-sm" onclick="openDutyModal()"><i class="fa-solid fa-circle-plus me-2"></i>開啟排班發布面版</button>
+          </div>
+        </div>
+      </div>
+
+      <!-- 全體註冊成員資格與審批清冊 -->
+      <div class="card border-0 shadow-sm p-4 rounded-3 bg-white">
+        <div class="d-flex justify-content-between align-items-center mb-3 flex-wrap g-2">
+          <h5 class="fw-bold text-dark mb-0"><i class="fa-solid fa-users me-2 text-secondary"></i>電視台全體註冊成員資格與審批清冊 <small class="text-muted fs-7">（點擊成員可開啟核實寫入面板）</small></h5>
+          <input type="text" id="search-input" class="form-control form-control-sm w-25" placeholder="🔍 快速搜尋學號、姓名..." onkeyup="filterTable()">
+        </div>
+        <div class="table-responsive">
+          <table class="table table-hover align-middle text-center border">
+            <thead class="table-light">
+              <tr>
+                <th>大頭照</th><th>學號</th><th>姓名</th><th>班級座號</th><th>個人電話</th><th>家長緊急聯絡資料</th><th>審查權限狀態</th>
+              </tr>
+            </thead>
+            <tbody id="admin-tbody">
+              <tr><td colspan="7" class="text-muted py-3">正在載入試算表大數據庫...</td></tr>
+            </tbody>
+          </table>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- ==========================================
+       各類功能對話框群 (Modals Group)
+       ========================================== -->
+
+  <!-- 器材借用登記互動視窗面版 (🏆 問題2修正：支援最多同時借用5件器材 🏆) -->
+  <div class="modal fade" id="borrowModal" data-bs-backdrop="static" tabindex="-1" aria-hidden="true">
+    <div class="modal-dialog modal-dialog-centered modal-md">
+      <div class="modal-content border-0 shadow">
+        <div class="modal-header bg-dark text-white">
+          <h5 class="modal-title fw-bold"><i class="fa-solid fa-clipboard-list me-2"></i>電視台設備器材出借綜合登記表</h5>
+          <button type="button" class="btn-close btn-close-white" data-bs-dismiss="modal" aria-label="Close"></button>
+        </div>
+        <form id="borrow-form" onsubmit="handleBorrowSubmit(event)">
+          <div class="modal-body text-start">
+            <!-- 登入身分連動區塊 -->
+            <div id="borrow-member-block" class="alert alert-info py-2 mb-3" style="display:none;">
+              <small class="fw-bold d-block">系統已綁定登入者身分：</small>
+              <span id="borrow-member-info" class="fs-6 fw-bold">--</span>
+            </div>
+            <div id="borrow-guest-block" class="row g-2 mb-3" style="display:none;">
+              <div class="col-md-4"><label class="form-label small fw-bold">借用人姓名</label><input type="text" id="borrow-name" class="form-control form-control-sm"></div>
+              <div class="col-md-4"><label class="form-label small fw-bold">班級/外部單位</label><input type="text" id="borrow-class" class="form-control form-control-sm" placeholder="如: 高一B / 設備組"></div>
+              <div class="col-md-4"><label class="form-label small fw-bold">手機聯絡電話</label><input type="tel" id="borrow-phone" class="form-control form-control-sm"></div>
+            </div>
+            
+            <!-- 器材選擇區：升級為最多同時選擇5件器材 -->
+            <div class="card p-3 bg-light mb-3 border-0 rounded-3">
+              <label class="form-label small fw-bold text-dark mb-2"><i class="fa-solid fa-boxes-stacked me-1 text-primary"></i>欲出借設備器材項目 (最多同時借用5件)</label>
+              
+              <div class="mb-2">
+                <div class="input-group input-group-sm">
+                  <span class="input-group-text bg-primary text-white fw-bold" style="width:75px;">第 1 件 *</span>
+                  <select id="borrow-eq-1" class="form-select form-select-sm select-eq-item" required>
+                    <option value="" disabled selected>-- 必填，請選擇主要設備 --</option>
+                    <option value="Sony相機">Sony相機</option>
+                    <option value="腳架">腳架</option>
+                    <option value="DJI 手持穩定器">DJI 手持穩定器</option>
+                    <option value="DJI 無線麥克風">DJI 無線麥克風</option>
+                    <option value="手持LED燈">手持LED燈</option>
+                    <option value="IPAD">IPAD</option>
+                    <option value="大DV">大DV</option>
+                    <option value="小DV">小DV</option>
+                  </select>
+                </div>
+              </div>
+              <div class="mb-2">
+                <div class="input-group input-group-sm">
+                  <span class="input-group-text bg-secondary text-white fw-bold" style="width:75px;">第 2 件</span>
+                  <select id="borrow-eq-2" class="form-select form-select-sm select-eq-item">
+                    <option value="">-- 選填，無則免填 --</option>
+                    <option value="Sony相機">Sony相機</option>
+                    <option value="腳架">腳架</option>
+                    <option value="DJI 手持穩定器">DJI 手持穩定器</option>
+                    <option value="DJI 無線麥克風">DJI 無線麥克風</option>
+                    <option value="手持LED燈">手持LED燈</option>
+                    <option value="IPAD">IPAD</option>
+                    <option value="大DV">大DV</option>
+                    <option value="小DV">小DV</option>
+                  </select>
+                </div>
+              </div>
+              <div class="mb-2">
+                <div class="input-group input-group-sm">
+                  <span class="input-group-text bg-secondary text-white fw-bold" style="width:75px;">第 3 件</span>
+                  <select id="borrow-eq-3" class="form-select form-select-sm select-eq-item">
+                    <option value="">-- 選填，無則免填 --</option>
+                    <option value="Sony相機">Sony相機</option>
+                    <option value="腳架">腳架</option>
+                    <option value="DJI 手持穩定器">DJI 手持穩定器</option>
+                    <option value="DJI 無線麥克風">DJI 無線麥克風</option>
+                    <option value="手持LED燈">手持LED燈</option>
+                    <option value="IPAD">IPAD</option>
+                    <option value="大DV">大DV</option>
+                    <option value="小DV">小DV</option>
+                  </select>
+                </div>
+              </div>
+              <div class="mb-2">
+                <div class="input-group input-group-sm">
+                  <span class="input-group-text bg-secondary text-white fw-bold" style="width:75px;">第 4 件</span>
+                  <select id="borrow-eq-4" class="form-select form-select-sm select-eq-item">
+                    <option value="">-- 選填，無則免填 --</option>
+                    <option value="Sony相機">Sony相機</option>
+                    <option value="腳架">腳架</option>
+                    <option value="DJI 手持穩定器">DJI 手持穩定器</option>
+                    <option value="DJI 無線麥克風">DJI 無線麥克風</option>
+                    <option value="手持LED燈">手持LED燈</option>
+                    <option value="IPAD">IPAD</option>
+                    <option value="大DV">大DV</option>
+                    <option value="小DV">小DV</option>
+                  </select>
+                </div>
+              </div>
+              <div>
+                <div class="input-group input-group-sm">
+                  <span class="input-group-text bg-secondary text-white fw-bold" style="width:75px;">第 5 件</span>
+                  <select id="borrow-eq-5" class="form-select form-select-sm select-eq-item">
+                    <option value="">-- 選填，無則免填 --</option>
+                    <option value="Sony相機">Sony相機</option>
+                    <option value="腳架">腳架</option>
+                    <option value="DJI 手持穩定器">DJI 手持穩定器</option>
+                    <option value="DJI 無線麥克風">DJI 無線麥克風</option>
+                    <option value="手持LED燈">手持LED燈</option>
+                    <option value="IPAD">IPAD</option>
+                    <option value="大DV">大DV</option>
+                    <option value="小DV">小DV</option>
+                  </select>
+                </div>
+              </div>
+            </div>
+
+            <div class="row g-2">
+              <div class="col-md-4"><label class="form-label small fw-bold">預計借用日期</label><input type="date" id="borrow-date" class="form-control form-control-sm" required></div>
+              <div class="col-md-4"><label class="form-label small fw-bold">預計取件時間</label><input type="time" id="borrow-time" class="form-control form-control-sm" required></div>
+              <div class="col-md-4">
+                <label class="form-label small fw-bold">借用預估時長</label>
+                <select id="borrow-duration" class="form-select form-select-sm" required>
+                  <option value="1">1 小時</option><option value="2" selected>2 小時</option><option value="4">4 小時</option><option value="8">8 小時</option><option value="24">24 小時</option><option value="48">48 小時</option>
+                </select>
+              </div>
+            </div>
+          </div>
+          <div class="modal-footer bg-light">
+            <button type="button" class="btn btn-secondary btn-sm" data-bs-dismiss="modal">取消關閉</button>
+            <button type="submit" class="btn btn-success btn-sm fw-bold">向系統提交借用單</button>
+          </div>
+        </form>
+      </div>
+    </div>
+  </div>
+
+  <!-- 管理員專用：發布全新值日排班表對話框 -->
+  <div class="modal fade" id="dutyModal" data-bs-backdrop="static" tabindex="-1" aria-hidden="true">
+    <div class="modal-dialog modal-dialog-centered">
+      <div class="modal-content border-0 shadow">
+        <div class="modal-header bg-success text-white">
+          <h5 class="modal-title fw-bold"><i class="fa-solid fa-calendar-plus me-2"></i>發布全新活動排班任務</h5>
+          <button type="button" class="btn-close btn-close-white" data-bs-dismiss="modal" aria-label="Close"></button>
+        </div>
+        <form id="duty-form" onsubmit="handleDutySubmit(event)">
+          <div class="modal-body text-start">
+            <div class="mb-2"><label class="form-label small fw-bold">新活動名稱項目</label><input type="text" id="duty-activity-name" class="form-control form-control-sm" required placeholder="如: 115學年畢業典禮全程錄影"></div>
+            <div class="row g-2 mb-2">
+              <div class="col-6"><label class="form-label small fw-bold">活動執行日期</label><input type="date" id="duty-date" class="form-control form-control-sm" required></div>
+              <div class="col-6"><label class="form-label small fw-bold">執行時間區段</label><input type="text" id="duty-time" class="form-control form-control-sm" placeholder="如: 08:30~12:00" required></div>
+            </div>
+            <div class="mb-3"><label class="form-label small fw-bold">活動現場總負責人</label><input type="text" id="duty-leader" class="form-control form-control-sm" placeholder="指導老師或總監姓名" required></div>
+            
+            <div class="card p-3 bg-light border-0 rounded-3">
+              <label class="form-label small fw-bold text-dark mb-2">👥 調度並派發內部成員任務 (可指派同一人)</label>
+              <div class="mb-2"><label class="form-label text-muted" style="font-size:0.75rem;">🎥 現場主機拍攝位 1 (必填)</label><select id="duty-cam1" class="form-select form-select-sm" required></select></div>
+              <div class="mb-2"><label class="form-label text-muted" style="font-size:0.75rem;">🎥 現場副機拍攝位 2 (選填)</label><select id="duty-cam2" class="form-select form-select-sm"></select></div>
+              <div class="mb-2"><label class="form-label text-muted" style="font-size:0.75rem;">🎥 現場游擊拍攝位 3 (選填)</label><select id="duty-cam3" class="form-select form-select-sm"></select></div>
+              <div><label class="form-label text-muted" style="font-size:0.75rem;">💻 後期主剪輯製片生 (必填)</label><select id="duty-editor" class="form-select form-select-sm" required></select></div>
+            </div>
+          </div>
+          <div class="modal-footer bg-light">
+            <button type="button" class="btn btn-secondary btn-sm" data-bs-dismiss="modal">放棄取消</button>
+            <button type="submit" class="btn btn-success btn-sm fw-bold">確認發布並登錄排班</button>
+          </div>
+        </form>
+      </div>
+    </div>
+  </div>
+
+  <!-- 成員手動現場簽到定位對話框 -->
+  <div class="modal fade" id="checkInModal" data-bs-backdrop="static" tabindex="-1" aria-hidden="true">
+    <div class="modal-dialog modal-dialog-centered modal-sm">
+      <div class="modal-content border-0 shadow">
+        <div class="modal-header bg-primary text-white py-2">
+          <h6 class="modal-title fw-bold"><i class="fa-solid fa-location-dot me-2"></i>現場拍攝值日簽到定位</h6>
+          <button type="button" class="btn-close btn-close-white" data-bs-dismiss="modal" aria-label="Close"></button>
+        </div>
+        <form id="checkin-form" onsubmit="handleCheckInSubmit(event)">
+          <input type="hidden" id="ci-activity-name"><input type="hidden" id="ci-date">
+          <div class="modal-body py-3 text-start">
+            <label class="form-label small fw-bold mb-1">回報當前值日工作崗位定位</label>
+            <select id="ci-location" class="form-select form-select-sm" required>
+              <option value="🎥 1號主機位" selected>🎥 1號主機位</option>
+              <option value="🎥 2號副機位">🎥 2號副機位</option>
+              <option value="🎥 3號游擊移動位">🎥 3號游擊移動位</option>
+              <option value="🎛️ 現場導播控台">🎛️ 現場導播控台</option>
+              <option value="🎤 現場收音工程位">🎤 現場收音工程位</option>
+            </select>
+          </div>
+          <div class="modal-footer py-1 bg-light">
+            <button type="button" class="btn btn-secondary btn-xs" data-bs-dismiss="modal">關閉</button>
+            <button type="submit" class="btn btn-primary btn-sm fw-bold">確認簽到</button>
+          </div>
+        </form>
+      </div>
+    </div>
+  </div>
+
+  <!-- 活動排班完整狀態追蹤對話框 -->
+  <div class="modal fade" id="viewStatusModal" tabindex="-1" aria-hidden="true">
+    <div class="modal-dialog modal-dialog-centered modal-lg">
+      <div class="modal-content border-0 shadow">
+        <div class="modal-header bg-info text-dark">
+          <h5 class="modal-title fw-bold" id="vs-activity-title">活動簽到進度實時追蹤</h5>
+          <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
+        </div>
+        <div class="modal-body">
+          <table class="table table-sm table-bordered align-middle text-center small mb-0">
+            <thead class="table-light">
+              <tr><th>指派崗位</th><th>配置成員</th><th>任務回報狀態</th><th>確切時間</th><th>工作細節/定位</th></tr>
+            </thead>
+            <tbody id="vs-tbody"></tbody>
+          </table>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- 修改里程碑與時數對話框 -->
+  <div class="modal fade" id="portfolioModal" data-bs-backdrop="static" tabindex="-1" aria-hidden="true">
+    <div class="modal-dialog modal-dialog-centered modal-lg">
+      <div class="modal-content border-0 shadow">
+        <div class="modal-header bg-secondary text-white">
+          <h5 class="modal-title fw-bold"><i class="fa-solid fa-user-pen me-2"></i>進階修訂成員成長學習檔案</h5>
+          <button type="button" class="btn-close btn-close-white" onclick="closePortfolioModal()"></button>
+        </div>
+        <div class="modal-body text-start">
+          
+          <!-- 人員抬頭資訊 -->
+          <div class="d-flex align-items-center mb-3 p-2 border-bottom bg-light rounded">
+            <img id="edit-member-photo" src="" class="table-img me-2 border" style="width:50px; height:50px; object-fit:cover; border-radius: 50%;">
+            <div>
+              <h6 id="edit-member-name" class="fw-bold text-dark mb-0">--</h6>
+              <small class="text-muted">學生活動與資歷核實寫入面板</small>
+            </div>
+            <input type="hidden" id="edit-student-id">
+          </div>
+          
+          <!-- 數據增減累計區塊：2 行 x 3 項 排版 (每項使用 col-4) -->
+          <div class="row g-2 mb-3 text-center">
+            <!-- 第一行：研習時數、值日次數、參賽次數 -->
+            <div class="col-4"><div class="bg-light p-2 rounded"><small class="text-muted d-block" style="font-size:0.7rem;">研習時數</small><span id="old-learn" class="fw-bold">0</span> + <input type="number" id="add-learn" class="form-control form-control-sm text-center d-inline-block mx-auto mt-1" style="width:60px;" value="0" oninput="calcPortfolioTotals()"> = <span id="total-learn" class="text-primary fw-bold">0</span></div></div>
+            <div class="col-4"><div class="bg-light p-2 rounded"><small class="text-muted d-block" style="font-size:0.7rem;">值日次數</small><span id="old-activity" class="fw-bold">0</span> + <input type="number" id="add-activity" class="form-control form-control-sm text-center d-inline-block mx-auto mt-1" style="width:60px;" value="0" oninput="calcPortfolioTotals()"> = <span id="total-activity" class="text-success fw-bold">0</span></div></div>
+            <div class="col-4"><div class="bg-light p-2 rounded"><small class="text-muted d-block" style="font-size:0.7rem;">參賽次數</small><span id="old-contest" class="fw-bold">0</span> + <input type="number" id="add-contest" class="form-control form-control-sm text-center d-inline-block mx-auto mt-1" style="width:60px;" value="0" oninput="calcPortfolioTotals()"> = <span id="total-contest" class="text-warning fw-bold">0</span></div></div>
+            
+            <!-- 第二行：專業技術、遲到次數(違規紅)、缺席次數(違規紅) -->
+            <div class="col-4"><div class="bg-light p-2 rounded"><small class="text-muted d-block" style="font-size:0.7rem;">專業技術</small><span id="old-skills" class="fw-bold">0</span> + <input type="number" id="add-skills" class="form-control form-control-sm text-center d-inline-block mx-auto mt-1" style="width:60px;" value="0" oninput="calcPortfolioTotals()"> = <span id="total-skills" class="text-info fw-bold">0</span></div></div>
+            <div class="col-4"><div class="p-2 rounded" style="background-color: #fff0f2;"><small class="text-muted d-block" style="font-size:0.7rem;">遲到次數</small><span id="old-late" class="fw-bold">0</span> + <input type="number" id="add-late" class="form-control form-control-sm text-center d-inline-block mx-auto mt-1" style="width:60px;" value="0" oninput="calcPortfolioTotals()"> = <span id="total-late" class="text-secondary fw-bold">0</span></div></div>
+            <div class="col-4"><div class="p-2 rounded" style="background-color: #fff0f2;"><small class="text-muted d-block" style="font-size:0.7rem;">缺席次數</small><span id="old-absent" class="fw-bold">0</span> + <input type="number" id="add-absent" class="form-control form-control-sm text-center d-inline-block mx-auto mt-1" style="width:60px;" value="0" oninput="calcPortfolioTotals()"> = <span id="total-absent" class="text-danger fw-bold">0</span></div></div>
+          </div>
+
+          <!-- 歷史里程碑審定紀錄 -->
+          <div class="mb-3">
+            <label class="form-label small fw-bold text-dark mb-1">📋 已登錄歷史里程碑審定紀錄</label>
+            <div id="old-milestones-history-container" class="border p-2 rounded bg-white" style="max-height: 120px; overflow-y: auto;"></div>
+          </div>
+          
+          <hr class="my-3">
+
+          <!-- 本次追加資歷寫入 -->
+          <div class="row g-3">
+            <!-- 左側：獎項與技術 -->
+            <div class="col-md-6">
+              <div class="p-2 border rounded bg-light h-100">
+                <label class="form-label small fw-bold text-primary mb-1">🏅 本次追加競賽獎項</label>
+                <input type="text" id="adm-contest-title" class="form-control form-control-sm mb-1" placeholder="獎項標題 (例: 全國短片大賽佳作)">
+                <input type="text" id="adm-contest-desc" class="form-control form-control-sm" placeholder="對應詳細內容描述...">
+                
+                <label class="form-label small fw-bold text-info mt-2 mb-1">🛠️ 本次追加核心專業技術證章</label>
+                <input type="text" id="adm-skill-title" class="form-control form-control-sm mb-1" placeholder="技術名稱 (例: 4K 專業導播機操作)">
+                <input type="text" id="adm-skill-desc" class="form-control form-control-sm" placeholder="考查通過描述...">
+              </div>
+            </div>
+
+            <!-- 右側：違規紀錄登記區塊 -->
+            <div class="col-md-6">
+              <div class="p-2 border rounded border-danger h-100" style="background-color: #fff0f2;">
+                <label class="form-label small fw-bold text-danger mb-1"><i class="fa-solid fa-triangle-exclamation me-1"></i> 登記違規紀錄 (同步推播至時間軸)</label>
+                <div class="mb-2">
+                  <select id="adm-violation-type" class="form-select form-select-sm text-danger fw-bold">
+                    <option value="">-- 請選擇違規類型 (若無則留空) --</option>
+                    <option value="遲到">🕒 遲到</option>
+                    <option value="缺席">❌ 缺席</option>
+                    <option value="其它違規事項">⚠️ 其它違規事項</option>
+                  </select>
+                </div>
+                <textarea id="adm-violation-desc" class="form-control form-control-sm" rows="3" placeholder="請輸入詳細事由 (例: 7/8 值日遲到 20 分鐘)"></textarea>
+              </div>
+            </div>
+          </div>
+
+          <!-- 自訂成長里程碑事件 -->
+          <div class="mt-3">
+            <div class="d-flex justify-content-between align-items-center mb-2">
+              <label class="form-label small fw-bold text-secondary mb-0">✨ 其他自訂成長里程碑事件</label>
+              <button type="button" class="btn btn-outline-primary btn-xs" onclick="addNewMilestoneRow()"><i class="fa-solid fa-plus me-1"></i>追加一行自訂事件</button>
+            </div>
+            <div id="new-milestones-container" style="max-height: 120px; overflow-y: auto;"></div>
+          </div>
+
+        </div>
+        <div class="modal-footer bg-light py-2">
+          <button type="button" class="btn btn-secondary btn-sm" onclick="closePortfolioModal()">不儲存關閉</button>
+          <button type="button" id="portfolio-submit-btn" class="btn btn-primary btn-sm fw-bold" onclick="savePortfolioChanges()"><i class="fa-solid fa-cloud-arrow-up me-1"></i>確認儲存修改</button>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <script>
+    // ==========================================
+    // 全域變數定義與視窗實例快取
+    // ==========================================
+    var checkInModalObj     = null;
+    var viewStatusModalObj  = null;
+    var dutyModalObj        = null;
+    var portfolioModalObj   = null;
+    var borrowModalObj      = null;
+
+    var loggedInUserSession = null; 
+    var cachedDuties        = [];
+    var allMembersCached    = [];
+    var currentOldMilestones = [];
+
+    // 安全防護：防止 XSS 攻擊的 HTML 轉義函式
+    function escapeHtml(str) {
+      if (!str) return '';
+      return String(str)
+        .replace(/&/g, '&amp;')
+        .replace(/</g, '&lt;')
+        .replace(/>/g, '&gt;')
+        .replace(/"/g, '&quot;')
+        .replace(/'/g, '&#039;');
+    }
+
+    // 控制全域 Loading 遮罩
+    function showLoading(status) {
+      var mask = document.getElementById('loading-mask');
+      if (mask) mask.style.display = status ? 'flex' : 'none';
+    }
+
+    // ==========================================
+    // 核心功能：視圖切換 (View Switching)
+    // ==========================================
+    function switchView(viewId) {
+      var sections = document.querySelectorAll('.view-section');
+      sections.forEach(function(s) { s.classList.remove('active'); });
+      
+      var target = document.getElementById(viewId);
+      if (target) target.classList.add('active');
+
+      var titleMap = {
+        'login-view': '歡迎登入系統',
+        'register-view': '新成員註冊申請中心',
+        'member-dashboard-view': '個人專屬成長檔案與時數進度',
+        'duty-table-view': '電視台活動值日與簽到回報系統',
+        'borrow-view': '器材借用與出借綜合登記表',
+        'admin-panel-view': '高階安全管理員控制台面板'
+      };
+      if (titleMap[viewId]) document.getElementById('page-title').innerText = titleMap[viewId];
+
+      var links = document.querySelectorAll('.sidebar-menu a');
+      links.forEach(function(l) { l.classList.remove('active'); });
+      var activeLink = document.querySelector(`.sidebar-menu a[onclick*="${viewId}"]`);
+      if (activeLink) activeLink.classList.add('active');
+
+      // 視圖切換時自動重新整理對應資料
+      if (viewId === 'duty-table-view') {
+        if (loggedInUserSession && loggedInUserSession.role === 'admin') { 
+          loadDutyDataAdmin(); 
+        } else { 
+          loadDutyDataMember(); 
+        }
+      } else if (viewId === 'borrow-view') {
+        if (loggedInUserSession && loggedInUserSession.role === 'admin') {
+          loadBorrowRecords();
+        }
+      }
+    }
+
+    // ==========================================
+    // 身分驗證模組 (Authentication)
+    // ==========================================
+    function handleLoginSubmit(e) {
+      e.preventDefault();
+      var id = document.getElementById('login-id').value.trim();
+      var pwd = document.getElementById('login-pwd').value;
+
+      if (!id || !pwd) {
+        alert("請輸入帳號與密碼！");
+        return;
+      }
+
+      showLoading(true);
+      google.script.run
+        .withSuccessHandler(function(res) {
+          showLoading(false); // 💡 一旦後端響應，立即安全關閉 Loading 遮罩
+          
+          if (!res) {
+            alert("伺服器無回應，請重新檢查您的連線。");
+            return;
+          }
+          
+          if (res.success) {
+            loggedInUserSession = res;
+            alert("身分驗證通過！歡迎 " + res.name + " 登入系統。");
+
+            var uTag = document.getElementById('user-tag');
+            uTag.innerText = "👤 " + res.name + " (" + (res.role === 'admin' ? '管理員' : '內部成員') + ")";
+            uTag.style.display = 'inline-block';
+            document.getElementById('logout-btn').style.display = 'inline-block';
+
+            document.getElementById('menu-login').style.display = 'none';
+            document.getElementById('menu-register').style.display = 'none';
+
+            if (res.role === 'admin') {
+              document.getElementById('admin-panel-alert').style.display = 'none';
+              document.getElementById('admin-panel-content').style.display = 'block';
+              
+              var adminBorrowSec = document.getElementById('adminBorrowSection');
+              if (adminBorrowSec) adminBorrowSec.style.display = 'block';
+
+              loadAdminData();
+              initAdminMemberDropdown();
+              loadBorrowRecords(); 
+              switchView('admin-panel-view');
+            } else {
+              document.getElementById('member-dashboard-alert').style.display = 'none';
+              document.getElementById('member-dashboard-content').style.display = 'block';
+              renderMemberProfile(res.memberData);
+              switchView('member-dashboard-view');
+            }
+          } else {
+            alert("登入失敗：" + res.message);
+          }
+        })
+        .withFailureHandler(function(err) {
+          showLoading(false); // 💡 連線失敗也必須安全關閉 Loading 遮罩，防止卡死
+          alert("網路或 Google 伺服器通訊異常，請稍候重試：\n" + (err.message || err));
+        })
+        .login(id, pwd);
+    }
+
+    function logout() {
+      loggedInUserSession = null; 
+      document.getElementById('login-id').value = '';
+      document.getElementById('login-pwd').value = '';
+
+      document.getElementById('user-tag').style.display = 'none';
+      document.getElementById('user-tag').innerText = '';
+      document.getElementById('logout-btn').style.display = 'none';
+
+      document.getElementById('menu-login').style.display = 'flex';
+      document.getElementById('menu-register').style.display = 'flex';
+
+      document.getElementById('member-dashboard-alert').style.display = 'block';
+      document.getElementById('member-dashboard-content').style.display = 'none';
+      document.getElementById('admin-panel-alert').style.display = 'block';
+      document.getElementById('admin-panel-content').style.display = 'none';
+      
+      var adminBorrowSec = document.getElementById('adminBorrowSection');
+      if (adminBorrowSec) adminBorrowSec.style.display = 'none';
+
+      switchView('login-view');
+      alert("您已安全退出綜合管理系統。");
+    }
+
+    // ==========================================
+    // 活動值日與簽到回報模組 (Duty & Attendance)
+    // ==========================================
+    function handleEditorComplete(activityName, dateStr, index) {
+      var btnEl = document.getElementById(`edit-btn-${index}`);
+      if (!btnEl || btnEl.getAttribute('data-submitted') === 'true') return;
+      if (!confirm(`確定已完成「${activityName}」的影片剪輯工作，並提交回報嗎？`)) return;
+
+      btnEl.setAttribute('data-submitted', 'true');
+      btnEl.disabled = true;
+
+      var payload = { activityName: activityName, date: dateStr, memberName: loggedInUserSession ? loggedInUserSession.name : "", location: "💻 剪輯已完成" };
+      showLoading(true);
+      google.script.run
+        .withSuccessHandler(function(res) {
+          showLoading(false); 
+          alert(res.message); 
+          refreshUserProfileAndDuty();
+        })
+        .withFailureHandler(function(err){
+          showLoading(false); 
+          alert("提交回報失敗：" + err); 
+          btnEl.removeAttribute('data-submitted'); 
+          btnEl.disabled = false; 
+        })
+        .submitCheckIn(payload);
+    }
+
+    function handleCheckInButtonClick(activityName, dateStr, index) {
+      openCheckInModal(activityName, dateStr);
+    }
+
+    function openCheckInModal(activityName, dateStr) {
+      document.getElementById('checkin-form').reset();
+      document.getElementById('ci-activity-name').value = activityName;
+      document.getElementById('ci-date').value = dateStr;
+      var submitBtn = document.querySelector('#checkin-form button[type="submit"]');
+      if (submitBtn) { submitBtn.removeAttribute('data-submitted'); submitBtn.disabled = false; submitBtn.innerHTML = '確認簽到'; }
+      
+      checkInModalObj = bootstrap.Modal.getOrCreateInstance(document.getElementById('checkInModal'));
+      checkInModalObj.show();
+    }
+
+    function handleCheckInSubmit(e) {
+      e.preventDefault();
+      var submitBtn = e.target.querySelector('button[type="submit"]');
+      if (!submitBtn || submitBtn.getAttribute('data-submitted') === 'true') return;
+
+      submitBtn.setAttribute('data-submitted', 'true');
+      submitBtn.disabled = true;
+
+      var payload = {
+        activityName: document.getElementById('ci-activity-name').value, 
+        date: document.getElementById('ci-date').value,
+        memberName: loggedInUserSession ? loggedInUserSession.name : "", 
+        location: document.getElementById('ci-location').value.trim()
+      };
+      
+      showLoading(true); 
+      checkInModalObj = bootstrap.Modal.getOrCreateInstance(document.getElementById('checkInModal'));
+      checkInModalObj.hide();
+
+      google.script.run
+        .withSuccessHandler(function(res) {
+          showLoading(false); 
+          alert(res.message); 
+          if (res.success) refreshUserProfileAndDuty();
+        })
+        .withFailureHandler(function(err){
+          showLoading(false); 
+          alert("簽到失敗：" + err); 
+          submitBtn.removeAttribute('data-submitted'); 
+          submitBtn.disabled = false; 
+        })
+        .submitCheckIn(payload);
+    }
+
+    function refreshUserProfileAndDuty() {
+      if (loggedInUserSession) {
+        google.script.run
+          .withSuccessHandler(function(newProfile) {
+            if (newProfile.success) { 
+              loggedInUserSession.memberData = newProfile.memberData; 
+              renderMemberProfile(newProfile.memberData); 
+            }
+            if (loggedInUserSession.role === 'admin') { 
+              loadAdminData(); 
+              loadDutyDataAdmin(); 
+              loadBorrowRecords(); 
+            } else { 
+              loadDutyDataMember(); 
+            }
+          })
+          .withFailureHandler(function(err) {
+             console.error("同步使用者檔案失敗: " + err);
+             loadDutyDataMember();
+          })
+          .login(loggedInUserSession.id, "REFRESH_DATA"); 
+      } else { 
+        loadDutyDataMember(); 
+      }
+    }
+
+    // 🏆 問題3優化：成員排班表渲染邏輯重構（被指派崗位全員皆完成，或同一人皆完成後，該紀錄才會在此消失） 🏆
+    function loadDutyDataMember() {
+      var curUserName = loggedInUserSession ? loggedInUserSession.name : "";
+      
+      google.script.run
+        .withSuccessHandler(function(duties) {
+          cachedDuties = duties;
+          var tbody = document.getElementById('duty-tbody'); 
+          tbody.innerHTML = '';
+          
+          if(!duties || duties.length === 0) { 
+            tbody.innerHTML = '<tr><td colspan="6" class="text-muted py-3">目前尚無排定之活動記錄。</td></tr>'; 
+            return; 
+          }
+          
+          var activeCount = 0;
+
+          duties.forEach(function(d, idx) {
+            // 1. 計算該活動「指派名單」與「指派給我的具體任務」
+            var isAssignedToMe = false;
+            var myTasksAllDone = true; 
+            var totalAssignedSlots = 0;
+            var totalDoneSlots = 0;
+
+            d.personnelStatus.forEach(function(p) {
+              if (p.memberName) {
+                totalAssignedSlots++;
+                if (p.hasCheckedIn) totalDoneSlots++;
+                
+                if (p.memberName === curUserName) {
+                  isAssignedToMe = true;
+                  if (!p.hasCheckedIn) {
+                    myTasksAllDone = false; // 只要有一項未簽到，就不算完工
+                  }
+                }
+              }
+            });
+
+            // 核心邏輯判斷：如果這個任務跟自己有關，但自己還沒全部回報完，必須顯示
+            // 如果這是一個公用任務，但分派的所有人還沒有全數簽到完成，就保留它。一旦全體完成，即刻自動下架！
+            var shouldShow = false;
+            if (isAssignedToMe) {
+              if (!myTasksAllDone) {
+                shouldShow = true; 
+              }
+            } else {
+              if (totalAssignedSlots > totalDoneSlots) {
+                shouldShow = true; 
+              }
+            }
+
+            if (!shouldShow) return; // 自動下架消失
+            activeCount++;
+
+            var camHtml = ''; 
+            var editHtml = '';
+            
+            d.personnelStatus.forEach(function(p) {
+              if(p.roleLabel.indexOf("拍攝") !== -1) {
+                if(p.memberName === curUserName && !p.hasCheckedIn) {
+                  camHtml += `<div class="mb-1">${escapeHtml(p.roleLabel)}: <strong>${escapeHtml(p.memberName)}</strong> <button id="cam-btn-${idx}" class="btn btn-success btn-xs py-0 px-2 small ms-1" onclick="handleCheckInButtonClick('${escapeHtml(d.activityName)}','${escapeHtml(d.date)}',${idx})">簽到</button></div>`;
+                } else {
+                  camHtml += `<div class="mb-1 text-muted">${escapeHtml(p.roleLabel)}: <strong class="text-dark">${escapeHtml(p.memberName)}</strong> ${p.hasCheckedIn?'<span class="text-success small fw-bold">(在場)</span>':'<span class="text-danger small">(未到)</span>'}</div>`;
+                }
+              } else if(p.roleLabel.indexOf("剪輯") !== -1) {
+                if(p.memberName === curUserName && !p.hasCheckedIn) {
+                  editHtml += `<div><strong>${escapeHtml(p.memberName)}</strong> <button id="edit-btn-${idx}" class="btn btn-primary btn-xs py-0 px-2 small ms-1" onclick="handleEditorComplete('${escapeHtml(d.activityName)}','${escapeHtml(d.date)}',${idx})">回報完成</button></div>`;
+                } else {
+                  editHtml += `<div class="text-muted"><strong class="text-dark">${escapeHtml(p.memberName)}</strong> ${p.hasCheckedIn?'<span class="text-primary small fw-bold">(已完成)</span>':'<span class="text-danger small">(待剪輯)</span>'}</div>`;
+                }
+              }
+            });
+
+            var tr = document.createElement('tr');
+            tr.innerHTML = `<td><strong>${escapeHtml(d.date)}</strong><br><small class="text-muted">${escapeHtml(d.time)}</small></td>
+                            <td class="fw-bold text-dark text-start">${escapeHtml(d.activityName)}</td>
+                            <td>${escapeHtml(d.leader)}</td>
+                            <td class="text-start">${camHtml||'-'}</td>
+                            <td>${editHtml||'-'}</td>
+                            <td><button class="btn btn-outline-info btn-sm px-2 py-1" onclick="openViewStatusModal(${idx})">追蹤</button></td>`;
+            tbody.appendChild(tr);
+          });
+
+          if (activeCount === 0) {
+            tbody.innerHTML = '<tr><td colspan="6" class="text-success fw-bold py-3"><i class="fa-solid fa-circle-check me-2"></i>好棒！目前所有您被指派的值日與製片工作已全數完成！</td></tr>';
+          }
+        })
+        .withFailureHandler(function(err) {
+           var tbody = document.getElementById('duty-tbody');
+           tbody.innerHTML = '<tr><td colspan="6" class="text-danger py-3">排班表載入失敗，錯誤: ' + err.message + '</td></tr>';
+        })
+        .getActivityDuties(curUserName);
+    }
+
+    // 管理員看板（管理員不隱藏任何紀錄，方便追蹤）
+    function loadDutyDataAdmin() {
+      google.script.run
+        .withSuccessHandler(function(duties) {
+          cachedDuties = duties;
+          var tbody = document.getElementById('duty-tbody'); tbody.innerHTML = '';
+          if(!duties || duties.length === 0) { tbody.innerHTML = '<tr><td colspan="6" class="text-muted py-3">目前無活動安排。</td></tr>'; return; }
+          duties.forEach(function(d, idx) {
+            var camHtml = ''; var editHtml = '';
+            d.personnelStatus.forEach(function(p) {
+              if(p.roleLabel.indexOf("拍攝") !== -1) {
+                camHtml += `<div class="mb-1 small">${escapeHtml(p.roleLabel)}: <strong>${escapeHtml(p.memberName||'未指派')}</strong> ${p.hasCheckedIn?'<span class="text-success fw-bold">(在場)</span>':'<span class="text-muted">(未)</span>'}</div>`;
+              } else {
+                editHtml += `<div class="small">剪輯: <strong>${escapeHtml(p.memberName||'未指派')}</strong> ${p.hasCheckedIn?'<span class="text-primary fw-bold">(完)</span>':'<span class="text-muted">(待)</span>'}</div>`;
+              }
+            });
+            var tr = document.createElement('tr');
+            tr.innerHTML = `<td><strong>${escapeHtml(d.date)}</strong></td><td class="fw-bold text-dark text-start">${escapeHtml(d.activityName)}</td><td>${escapeHtml(d.leader)}</td><td class="text-start">${camHtml}</td><td>${editHtml}</td><td><button class="btn btn-outline-info btn-sm px-2 py-1" onclick="openViewStatusModal(${idx})">追蹤</button></td>`;
+            tbody.appendChild(tr);
+          });
+        })
+        .withFailureHandler(function(err) {
+           document.getElementById('duty-tbody').innerHTML = '<tr><td colspan="6" class="text-danger py-3">管理員排班表載入失敗。</td></tr>';
+        })
+        .getActivityDuties();
+    }
+
+    function openViewStatusModal(index) {
+      var duty = cachedDuties[index]; if(!duty) return;
+      document.getElementById('vs-activity-title').innerText = duty.activityName + " (" + duty.date + ")";
+      var tbody = document.getElementById('vs-tbody'); tbody.innerHTML = '';
+      duty.personnelStatus.forEach(function(p) {
+        var isEdit = p.roleLabel.indexOf("剪輯") !== -1;
+        var tr = document.createElement('tr');
+        tr.innerHTML = `<td>${escapeHtml(p.roleLabel)}</td><td class="fw-bold">${escapeHtml(p.memberName)}</td><td>${p.hasCheckedIn?(isEdit?'<span class="badge bg-primary">已完成</span>':'<span class="badge bg-success">已在場</span>'):'<span class="badge bg-danger">未完成/未到</span>'}</td><td>${p.hasCheckedIn?escapeHtml(p.time):'--'}</td><td>${p.hasCheckedIn?escapeHtml(p.location):'-'}</td>`;
+        tbody.appendChild(tr);
+      });
+      
+      viewStatusModalObj = bootstrap.Modal.getOrCreateInstance(document.getElementById('viewStatusModal'));
+      viewStatusModalObj.show();
+    }
+
+    function openDutyModal() {
+      document.getElementById('duty-form').reset();
+      document.getElementById('duty-date').value = new Date().toISOString().split('T')[0];
+      var approved = allMembersCached.filter(function(m) { return m.role === 'member'; });
+      var selects = [document.getElementById('duty-cam1'), document.getElementById('duty-cam2'), document.getElementById('duty-cam3'), document.getElementById('duty-editor')];
+      selects.forEach(function(sel, i){
+        sel.innerHTML = (i===0||i===3)?'<option value="" disabled selected>-- 請選擇 --</option>':'<option value="">-- 選填 --</option>';
+        approved.forEach(function(m){ var opt=document.createElement('option'); opt.value=m.name; opt.innerText=m.name; sel.appendChild(opt); });
+      });
+      
+      dutyModalObj = bootstrap.Modal.getOrCreateInstance(document.getElementById('dutyModal'));
+      dutyModalObj.show();
+    }
+
+    function handleDutySubmit(e) {
+      e.preventDefault();
+      var payload = {
+        activityName: document.getElementById('duty-activity-name').value.trim(), 
+        date: document.getElementById('duty-date').value, 
+        time: document.getElementById('duty-time').value.trim(), 
+        leader: document.getElementById('duty-leader').value.trim(),
+        cam1: document.getElementById('duty-cam1').value, 
+        cam2: document.getElementById('duty-cam2').value, 
+        cam3: document.getElementById('duty-cam3').value, 
+        editor: document.getElementById('duty-editor').value
+      };
+      showLoading(true); 
+      dutyModalObj = bootstrap.Modal.getOrCreateInstance(document.getElementById('dutyModal'));
+      dutyModalObj.hide();
+      google.script.run
+        .withSuccessHandler(function(res) { 
+          showLoading(false); 
+          alert(res.message); 
+          if(res.success) { 
+            if(loggedInUserSession && loggedInUserSession.role==='admin'){loadDutyDataAdmin();}else{loadDutyDataMember();} 
+          } 
+        })
+        .withFailureHandler(function(err) {
+          showLoading(false);
+          alert("活動排班失敗：" + err);
+        })
+        .submitActivityDuty(payload);
+    }
+
+    // ==========================================
+    // 儀表板與管理控制台 (Dashboard & Admin)
+    // ==========================================
+    function renderMemberProfile(data) {
+      // 1. 基礎基本資料渲染
+      document.getElementById('m-photo').src = data.photo || "https://via.placeholder.com/150";
+      document.getElementById('m-name').innerText = data.name; 
+      document.getElementById('m-id').innerText = data.studentId; 
+      document.getElementById('m-class').innerText = data.className;
+      document.getElementById('m-phone').innerText = data.phone || '無'; 
+      document.getElementById('m-pname').innerText = data.parentName || '無'; 
+      document.getElementById('m-prel').innerText = data.relationship || '無'; 
+      document.getElementById('m-pphone').innerText = data.parentPhone || '無';
+
+      // 2. 獲取歷程檔案數據 (若無則提供預設值) 🌟已補上 late 與 absent 的預設值 0
+      var pf = data.portfolio || { learnHours: 0, activityHours: 0, contests: 0, skills: 0, late: 0, absent: 0, milestones: [] };
+      document.getElementById('stat-learn').innerText = (pf.learnHours || 0) + ' 小時';
+      document.getElementById('stat-activity').innerText = (pf.activityHours || 0) + ' 次';
+      document.getElementById('stat-contest').innerText = (pf.contests || 0) + ' 次';
+      document.getElementById('stat-skills').innerText = (pf.skills || 0) + ' 項';
+      
+      // 🔥 新增：將遲到與缺席數據渲染到成員面板中
+      if (document.getElementById('stat-late')) {
+        document.getElementById('stat-late').innerText = (pf.late || 0) + ' 次';
+      }
+      if (document.getElementById('stat-absent')) {
+        document.getElementById('stat-absent').innerText = (pf.absent || 0) + ' 次';
+      }
+
+      // 3. 計算成長星級 (學習時數 + 活動時數)
+      var score = (pf.learnHours || 0) + (pf.activityHours || 0);
+      var stars = score >= 150 ? 5 : (score >= 100 ? 4 : (score >= 50 ? 3 : (score >= 20 ? 2 : 1)));
+      
+      var starHtml = ''; 
+      for (var i = 1; i <= 5; i++) {
+        starHtml += i <= stars 
+          ? '<i class="fa-solid fa-star me-1"></i>' 
+          : '<i class="fa-solid fa-star text-muted me-1" style="color:#e4e5e9 !important;"></i>';
+      }
+      document.getElementById('p-stars').innerHTML = starHtml;
+
+      // 4. 渲染個人成長時間軸 (包含一般、獎項、違規標記)
+      var ul = document.getElementById('p-timeline'); 
+      ul.innerHTML = '';
+      
+      if (pf.milestones && pf.milestones.length > 0) {
+        pf.milestones.forEach(function(item) {
+          var li = document.createElement('li'); 
+          
+          // ✨ 依據後端傳回的 type 賦予對應的 CSS 類別
+          if (item.type === 'award') {
+            li.className = 'modal-timeline-item award';
+          } else if (item.type === 'violation') {
+            li.className = 'modal-timeline-item violation'; // 🎯 遲到/缺席會走到這裡
+          } else {
+            li.className = 'modal-timeline-item';
+          }
+          
+          // 組裝時間軸 HTML 內容
+          li.innerHTML = `
+            <div class="modal-timeline-date">${escapeHtml(item.date)}</div>
+            <div class="fw-bold text-dark">${escapeHtml(item.title)}</div>
+            <p class="text-muted small mb-0">${escapeHtml(item.desc || '')}</p>
+          `;
+          ul.appendChild(li);
+        });
+      } else { 
+        ul.innerHTML = '<li class="text-muted small">目前尚無里程碑紀錄。</li>'; 
+      }
+    }
+
+    function loadAdminData() {
+      showLoading(true);
+      google.script.run
+        .withSuccessHandler(function(members) {
+          showLoading(false); allMembersCached = members; 
+          var tbody = document.getElementById('admin-tbody'); tbody.innerHTML = '';
+          members.forEach(function(m) {
+            var btn = m.role === 'admin' ? '<span class="badge bg-warning text-dark">管理員</span>' : 
+                     (m.role === 'pending' ? `<button class="btn btn-success btn-sm w-100 mb-1" onclick="handleApprove('${m.studentId}')">通過</button><button class="btn btn-danger btn-sm w-100" onclick="handleDelete('${m.studentId}')">拒絕</button>` :
+                      `<span class="badge bg-success mb-1">已通過</span><br><button class="btn btn-primary btn-sm mb-1 w-100" onclick="openPortfolioModal('${m.studentId}')"><i class="fa-solid fa-user-pen me-1"></i>成長檔案</button><br><button class="btn btn-outline-danger btn-sm w-100" onclick="handleDelete('${m.studentId}')">刪除</button>`);
+            var tr = document.createElement('tr'); if(m.role === 'pending') tr.className = 'table-warning';
+            tr.innerHTML = `<td><img src="${m.photo}" class="table-img" onerror="this.src='https://via.placeholder.com/150';"></td><td>${escapeHtml(m.studentId)}</td><td class="fw-bold">${escapeHtml(m.name)}</td><td><span class="badge bg-secondary">${escapeHtml(m.className)}</span></td><td>${escapeHtml(m.phone||'')}</td><td><small>${escapeHtml(m.parentName||'')}(${escapeHtml(m.relationship||'')})<br>${escapeHtml(m.parentPhone||'')}</small></td><td>${btn}</td>`;
+            tbody.appendChild(tr);
+          });
+        })
+        .withFailureHandler(function(err) {
+           showLoading(false);
+           alert("加載全體成員檔案失敗: " + err);
+        })
+        .getAllMembers();
+    }
+
+    function initAdminMemberDropdown() {
+      var selectEl = document.getElementById('adm-member-name'); if (!selectEl) return;
+      google.script.run
+        .withSuccessHandler(function(res) {
+          if (res.success && res.memberList) {
+            selectEl.innerHTML = '<option value="">-- 請選擇成員 --</option>';
+            res.memberList.forEach(function(name) { var opt = document.createElement('option'); opt.value = name; opt.textContent = name; selectEl.appendChild(opt); });
+          }
+        })
+        .withFailureHandler(function(err) {
+           console.error("加載成員下拉清單失敗: " + err);
+        })
+        .getAllMemberNames();
+    }
+
+    function handleAdminFormSubmit(e) {
+      e.preventDefault();
+      var submitBtn = document.getElementById('adm-submit-btn'); if (submitBtn.disabled) return;
+      var memberName = document.getElementById('adm-member-name').value;
+      if(!memberName) return;
+
+      submitBtn.disabled = true; submitBtn.innerHTML = '儲存數據中...';
+      
+      // 🏆 修正點：精確對接 UI 上的管理員違規輸入元件 id
+      var adminPayload = {
+        memberName: memberName, 
+        learnHours: document.getElementById('adm-learn-hours').value, 
+        activityHours: document.getElementById('adm-activity-hours').value,
+        newContestTitle: document.getElementById('adm-contest-title').value, 
+        newContestDesc: document.getElementById('adm-contest-desc').value,
+        newSkillTitle: document.getElementById('adm-skill-title').value, 
+        newSkillDesc: document.getElementById('adm-skill-desc').value,
+        
+        // 🔥 補上原本缺失的參數
+        violationType: document.getElementById('adm-violation-type').value,
+        violationDesc: document.getElementById('adm-violation-desc').value
+      };
+      
+      google.script.run
+        .withSuccessHandler(function(res) {
+          submitBtn.disabled = false; submitBtn.innerHTML = '<i class="fa-solid fa-cloud-arrow-up me-1"></i>確認更新學生成長檔案';
+          alert(res.message); 
+          if (res.success) {  
+            document.getElementById('adm-contest-title').value = ""; document.getElementById('adm-contest-desc').value = "";
+            document.getElementById('adm-skill-title').value = ""; document.getElementById('adm-skill-desc').value = "";
+            
+            // ✨ 成功送出後，一併清空違規紀錄欄位，防止重複誤送
+            document.getElementById('adm-violation-type').value = "";
+            document.getElementById('adm-violation-desc').value = "";
+            
+            refreshUserProfileAndDuty();
+          }
+        })
+        .withFailureHandler(function(err){ 
+          submitBtn.disabled = false; 
+          submitBtn.innerHTML = '<i class="fa-solid fa-cloud-arrow-up me-1"></i>確認更新學生成長檔案'; 
+          alert("連線程序異常：" + err.toString());
+        })
+        .updateMemberPortfolioByAdmin(adminPayload);
+    }
+
+    function filterTable() {
+      var input = document.getElementById('search-input').value.toUpperCase();
+      var rows = document.getElementById('admin-tbody').getElementsByTagName('tr');
+      for (var i = 0; i < rows.length; i++) { var txt = rows[i].textContent || rows[i].innerText; rows[i].style.display = txt.toUpperCase().indexOf(input) > -1 ? "" : "none"; }
+    }
+
+    // ==========================================
+    // 器材借用綜合模組 (Equipment Borrowing)
+    // ==========================================
+    function openBorrowModal() {
+      document.getElementById('borrow-form').reset();
+      document.getElementById('borrow-date').value = new Date().toISOString().split('T')[0];
+      if (loggedInUserSession) {
+        document.getElementById('borrow-member-block').style.display = 'block'; document.getElementById('borrow-guest-block').style.display = 'none';
+        document.getElementById('borrow-member-info').innerText = loggedInUserSession.name;
+      } else {
+        document.getElementById('borrow-member-block').style.display = 'none'; document.getElementById('borrow-guest-block').style.display = 'flex';
+      }
+      
+      borrowModalObj = bootstrap.Modal.getOrCreateInstance(document.getElementById('borrowModal'));
+      borrowModalObj.show();
+    }
+
+    // 🏆 問題2修正：多件器材同時借用前端封裝打包（最多5件項目） 🏆
+    function handleBorrowSubmit(e) {
+      e.preventDefault();
+      
+      // 依序抓取 1 到 5 個下拉選單的值
+      var selectedEquipments = [];
+      for (var k = 1; k <= 5; k++) {
+        var eqVal = document.getElementById('borrow-eq-' + k).value;
+        if (eqVal && eqVal.trim() !== "") {
+          selectedEquipments.push(eqVal.trim());
+        }
+      }
+
+      // 安全防呆
+      if (selectedEquipments.length === 0) {
+        alert("請至少選擇一件欲借用的設備器材！");
+        return;
+      }
+
+      // 將多件器材以頓號（、）串接
+      var finalEquipmentString = selectedEquipments.join('、');
+
+      var payload = {
+        identity: loggedInUserSession ? "成員" : "訪客", 
+        name: loggedInUserSession ? loggedInUserSession.name : document.getElementById('borrow-name').value,
+        className: loggedInUserSession ? "電視台" : document.getElementById('borrow-class').value, 
+        phone: loggedInUserSession ? "N/A" : document.getElementById('borrow-phone').value,
+        equipment: finalEquipmentString, // 💡 多件器材封裝字串
+        date: document.getElementById('borrow-date').value, 
+        time: document.getElementById('borrow-time').value, 
+        duration: document.getElementById('borrow-duration').value
+      };
+
+      showLoading(true); 
+      borrowModalObj = bootstrap.Modal.getOrCreateInstance(document.getElementById('borrowModal'));
+      borrowModalObj.hide();
+
+      google.script.run
+        .withSuccessHandler(function(res){ 
+          showLoading(false); 
+          alert(res.message); 
+          if(loggedInUserSession && loggedInUserSession.role === 'admin') loadBorrowRecords(); 
+        })
+        .withFailureHandler(function(err){
+          showLoading(false);
+          alert("借用登記提交失敗：" + err);
+        })
+        .submitEquipmentBorrow(payload);
+    }
+
+    // 🏆 問題1修正：優化管理員查看借用器材格式，加上安全轉義與防破版結構 🏆
+    function loadBorrowRecords() {
+      var recordsBody = document.getElementById('borrowRecordsBody');
+      if (!recordsBody) return; 
+      
+      recordsBody.innerHTML = '<tr><td colspan="9" class="text-center"><div class="spinner-border spinner-border-sm text-secondary me-2"></div>資料載入中...</td></tr>';
+
+      google.script.run
+        .withSuccessHandler(function(records) {
+          console.log("借用紀錄：", records);
+          var html = "";
+          if (!records || records.length === 0) {
+            html = '<tr><td colspan="9" class="text-center text-muted">目前暫無任何器材借用登記紀錄。</td></tr>';
+          } else {
+            for (var i = 0; i < records.length; i++) {
+              html += "<tr>" +
+                        "<td class='cell-time'>" + escapeHtml(records[i].timestamp) + "</td>" +
+                        "<td><span class='badge bg-light text-dark border'>" + escapeHtml(records[i].identity) + "</span></td>" +
+                        "<td><strong>" + escapeHtml(records[i].name) + "</strong></td>" +
+                        "<td>" + escapeHtml(records[i].className) + "</td>" +
+                        "<td>" + escapeHtml(records[i].phone) + "</td>" +
+                        "<td class='cell-wrap-text text-start'><span class='text-primary fw-bold'>" + escapeHtml(records[i].equipment) + "</span></td>" +
+                        "<td>" + escapeHtml(records[i].date) + "</td>" +
+                        "<td>" + escapeHtml(records[i].time) + "</td>" +
+                        "<td><span class='badge bg-dark'>" + escapeHtml(records[i].duration) + " 小時</span></td>" +
+                      "</tr>";
+            }
+          }
+          recordsBody.innerHTML = html;
+        })
+        .withFailureHandler(function(err) {
+          recordsBody.innerHTML = '<tr><td colspan="9" class="text-center text-danger">載入失敗。</td></tr>';
+          alert("載入借用紀錄失敗：" + (err.message || err));
+        })
+        .getBorrowRecords();
+    }
+
+    // ==========================================
+    // 學生成長檔案進階修訂模組 (Portfolio)
+    // ==========================================
+    // 1. 🟢 開啟學生活動與資歷核實寫入面板
+    function openPortfolioModal(studentId) {
+      var member = allMembersCached.find(function(i) { return i.studentId === studentId; });
+      if(!member) return;
+      
+      document.getElementById('edit-student-id').value = member.studentId;
+      document.getElementById('edit-member-name').innerText = member.name + " (" + member.className + ")";
+      document.getElementById('edit-member-photo').src = member.photo || "https://via.placeholder.com/150";
+      
+      var submitBtn = document.getElementById('portfolio-submit-btn');
+      if(submitBtn) { submitBtn.disabled = false; submitBtn.innerHTML = '確認儲存修改'; }
+
+      // 初始化物件時，同步加上 late 與 absent 欄位預設值
+      var pf = { learnHours: 0, activityHours: 0, contests: 0, skills: 0, late: 0, absent: 0, milestones: [] };
+      if (member.portfolio) {
+        if (typeof member.portfolio === 'string') { 
+          try { pf = JSON.parse(member.portfolio); } catch(e){} 
+        } else { pf = member.portfolio; }
+      }
+      
+      // 載入歷史數據到 Modal 的 old 顯示區
+      document.getElementById('old-learn').innerText = pf.learnHours || 0;
+      document.getElementById('old-activity').innerText = pf.activityHours || 0;
+      document.getElementById('old-contest').innerText = pf.contests || 0;
+      document.getElementById('old-skills').innerText = pf.skills || 0;
+      // 🔥 載入歷史遲到與缺席次數
+      document.getElementById('old-late').innerText = pf.late || 0;
+      document.getElementById('old-absent').innerText = pf.absent || 0;
+      
+      // 將本次追加輸入框清空歸零
+      document.getElementById('add-learn').value = 0; 
+      document.getElementById('add-activity').value = 0; 
+      document.getElementById('add-contest').value = 0; 
+      document.getElementById('add-skills').value = 0;
+      // 🔥 將本次追加的遲到與缺席輸入框清空歸零
+      document.getElementById('add-late').value = 0;
+      document.getElementById('add-absent').value = 0;
+      
+      // 每次打開面板，都清空違規紀錄文字框與下拉選單
+      if (document.getElementById('adm-violation-type')) document.getElementById('adm-violation-type').value = '';
+      if (document.getElementById('adm-violation-desc')) document.getElementById('adm-violation-desc').value = '';
+      if (document.getElementById('adm-contest-title')) document.getElementById('adm-contest-title').value = '';
+      if (document.getElementById('adm-contest-desc')) document.getElementById('adm-contest-desc').value = '';
+      if (document.getElementById('adm-skill-title')) document.getElementById('adm-skill-title').value = '';
+      if (document.getElementById('adm-skill-desc')) document.getElementById('adm-skill-desc').value = '';
+
+      currentOldMilestones = pf.milestones || [];
+      renderOldMilestonesHistory();
+      
+      document.getElementById('new-milestones-container').innerHTML = '';
+      calcPortfolioTotals();
+      
+      portfolioModalObj = bootstrap.Modal.getOrCreateInstance(document.getElementById('portfolioModal'));
+      portfolioModalObj.show();
+    }
+
+    // 2. 🔵 按下確認儲存修改時的打包與即時快取同步
+    function savePortfolioChanges() {
+      var studentId = document.getElementById('edit-student-id').value;
+      if (!studentId) return;
+
+      // 讀取已經加總完成的最新最終數值
+      var totalLearn    = parseInt(document.getElementById('total-learn').innerText) || 0;
+      var totalActivity = parseInt(document.getElementById('total-activity').innerText) || 0;
+      var totalContest  = parseInt(document.getElementById('total-contest').innerText) || 0;
+      var totalSkills   = parseInt(document.getElementById('total-skills').innerText) || 0;
+      // 🔥 新增：讀取最終加總後的遲到與缺席總計
+      var totalLate     = parseInt(document.getElementById('total-late').innerText) || 0;
+      var totalAbsent   = parseInt(document.getElementById('total-absent').innerText) || 0;
+
+      // 處理歷史里程碑
+      var updatedMilestones = [].concat(currentOldMilestones);
+      
+      // 處理快速追加欄位 (競賽、技術、違規) 到時間軸
+      var cTitle = document.getElementById('adm-contest-title').value.trim();
+      var cDesc = document.getElementById('adm-contest-desc').value.trim();
+      if(cTitle) updatedMilestones.push({ type: "🏅 競賽獎項", title: cTitle, desc: cDesc, date: new Date().toLocaleDateString() });
+      
+      var sTitle = document.getElementById('adm-skill-title').value.trim();
+      var sDesc = document.getElementById('adm-skill-desc').value.trim();
+      if(sTitle) updatedMilestones.push({ type: "🛠️ 專業技術", title: sTitle, desc: sDesc, date: new Date().toLocaleDateString() });
+
+      var vType = document.getElementById('adm-violation-type').value;
+      var vDesc = document.getElementById('adm-violation-desc').value.trim();
+      if(vType) updatedMilestones.push({ type: "⚠️ 違規紀錄", title: vType, desc: vDesc, date: new Date().toLocaleDateString() });
+
+      // 🧩 重新建構成完整的全新新物件（含 late 和 absent）
+      var newPortfolioObj = {
+        learnHours: totalLearn,
+        activityHours: totalActivity,
+        contests: totalContest,
+        skills: totalSkills,
+        late: totalLate,       // 🔥 寫入新欄位
+        absent: totalAbsent,   // 🔥 寫入新欄位
+        milestones: updatedMilestones
+      };
+
+      var submitBtn = document.getElementById('portfolio-submit-btn');
+      if(submitBtn) { submitBtn.disabled = true; submitBtn.innerHTML = '正在同步儲存...'; }
+
+      // 🚀 呼叫後台 GAS 寫入試算表
+      google.script.run
+        .withSuccessHandler(function(res) {
+          if(res.success) {
+            alert(res.message);
+            
+            // 🌟【最核心整合點】同步更新前端快取 allMembersCached 
+            // 這樣下次再用 openPortfolioModal 開啟同個人時，資料才會是最新修正的！
+            var member = allMembersCached.find(function(i) { return i.studentId === studentId; });
+            if(member) {
+              member.portfolio = newPortfolioObj; 
+            }
+            
+            portfolioModalObj.hide();
+            if(typeof refreshAdminTable === 'function') { refreshAdminTable(); } // 如果前端有刷新列表的函式則執行
+          } else {
+            alert(res.message);
+            if(submitBtn) { submitBtn.disabled = false; submitBtn.innerHTML = '確認儲存修改'; }
+          }
+        })
+        .withFailureHandler(function(err) {
+          alert("連線失敗：" + err);
+          if(submitBtn) { submitBtn.disabled = false; submitBtn.innerHTML = '確認儲存修改'; }
+        })
+        .updateMemberPortfolio(studentId, newPortfolioObj); // 丟給後台 K 欄寫入
+    }
+
+    // 尋找您原本負責提交管理員修改數據的 function
+    function submitAdminUpdate() {
+      // ... 獲取原本的成員名稱、時數、比賽、技能等欄位值 ...
+      var memberName = document.getElementById("adminSelectMember").value; // 依您原本的 id 為準
+      var learnHours = document.getElementById("adminLearnHours").value;
+      var activityHours = document.getElementById("adminActivityHours").value;
+      var newContestTitle = document.getElementById("adminContestTitle").value;
+      var newContestDesc = document.getElementById("adminContestDesc").value;
+      var newSkillTitle = document.getElementById("adminSkillTitle").value;
+      var newSkillDesc = document.getElementById("adminSkillDesc").value;
+
+      // 1. 🔍 在這裡捕獲我們剛才新增的「違規紀錄」資料
+      var violationType = document.getElementById("adminViolationType").value;
+      var violationDesc = document.getElementById("adminViolationDesc").value;
+
+      if (!memberName) {
+        alert("請先選擇要調整的成員！");
+        return;
+      }
+
+      // 顯示載入狀態（依您原本的 UI 設計）
+      showLoading(true);
+
+      // 2. 📦 將資料打包傳送給後端 Code.gs
+      var adminPayload = {
+        memberName: memberName,
+        learnHours: learnHours,
+        activityHours: activityHours,
+        newContestTitle: newContestTitle,
+        newContestDesc: newContestDesc,
+        newSkillTitle: newSkillTitle,
+        newSkillDesc: newSkillDesc,
+        
+        // 🔥 對接新功能的參數
+        violationType: violationType,
+        violationDesc: violationDesc
+      };
+
+      // 3. 🚀 執行後端 GAS 核心程序
+      google.script.run
+        .withSuccessHandler(function(response) {
+          showLoading(false);
+          if (response.success) {
+            alert(response.message);
+            
+            // ✨ 成功送出後，清空違規紀錄欄位，避免下次誤送
+            document.getElementById("adminViolationType").value = "";
+            document.getElementById("adminViolationDesc").value = "";
+            
+            // 如果您有寫重新載入表格的 function，在此處調用（例如：refreshAdminTable()）
+          } else {
+            alert("更新失敗：" + response.message);
+          }
+        })
+        .withFailureHandler(function(err) {
+          showLoading(false);
+          alert("連線程序異常：" + err.toString());
+        })
+        .updateMemberPortfolioByAdmin(adminPayload); // 呼叫 Code.gs 中的函式
+    }
+
+
+
+    function renderOldMilestonesHistory() {
+      var container = document.getElementById('old-milestones-history-container'); 
+      container.innerHTML = '';
+      
+      if(currentOldMilestones.length > 0) {
+        var ul = document.createElement('ul'); 
+        ul.className = 'modal-timeline-container ps-2 text-start';
+        
+        currentOldMilestones.forEach(function(m, idx) {
+          var li = document.createElement('li'); 
+          li.className = m.type === 'award' ? 'modal-timeline-item award' : 'modal-timeline-item';
+          li.innerHTML = `
+            <div class="d-flex justify-content-between align-items-start">
+              <div>
+                <div class="modal-timeline-date">${escapeHtml(m.date)}</div>
+                <div class="fw-bold text-dark small">${escapeHtml(m.title)}</div>
+                <small class="text-muted d-block" style="font-size:0.75rem;">${escapeHtml(m.desc || '')}</small>
+              </div>
+              <button type="button" class="btn btn-link text-danger p-0 ms-2" onclick="deleteOldMilestone(${idx})">
+                <i class="fa-solid fa-trash-can"></i>
+              </button>
+            </div>
+          `;
+          ul.appendChild(li);
+        });
+        container.appendChild(ul);
+      } else { 
+        container.innerHTML = '<span class="text-muted small d-block text-center py-3">目前尚無成長里程碑紀錄。</span>'; 
+      }
+    }
+
+    function deleteOldMilestone(idx) { 
+      if(confirm('確定要移除此筆里程碑記錄嗎？(儲存後生效)')) { 
+        currentOldMilestones.splice(idx, 1); 
+        renderOldMilestonesHistory(); 
+        calcPortfolioTotals(); 
+      } 
+    }
+
+    function addNewMilestoneRow() {
+      var container = document.getElementById('new-milestones-container'); 
+      var div = document.createElement('div'); 
+      div.className = 'milestone-new-row position-relative mb-2 p-2 border rounded bg-light';
+      div.innerHTML = `
+        <button type="button" class="btn-close position-absolute top-0 end-0 m-2" style="font-size: 0.7rem;" onclick="this.parentElement.remove(); calcPortfolioTotals();"></button>
+        <div class="row g-2 pt-2 text-start">
+          <div class="col-md-3"><input type="text" class="form-control form-control-sm new-ms-date" placeholder="日期(2026-07)" oninput="calcPortfolioTotals()"></div>
+          <div class="col-md-6"><input type="text" class="form-control form-control-sm new-ms-title" placeholder="新里程碑標題..." oninput="calcPortfolioTotals()"></div>
+          <div class="col-md-3"><select class="form-select form-select-sm new-ms-type"><option value="normal">一般經歷</option><option value="award">🏆 榮獲獎項</option></select></div>
+          <div class="col-md-12"><input type="text" class="form-control form-control-sm new-ms-desc" placeholder="詳細描述(選填)..."></div>
+        </div>
+      `;
+      container.appendChild(div); 
+      calcPortfolioTotals();
+    }
+
+    function calcPortfolioTotals() {
+      // 將所有需要計算的項目類型列出來
+      var types = ['learn', 'activity', 'contest', 'skills', 'late', 'absent'];
+      
+      types.forEach(function(type) {
+        var oldValEl = document.getElementById('old-' + type);
+        var addValEl = document.getElementById('add-' + type);
+        var totalValEl = document.getElementById('total-' + type);
+        
+        // 確保畫面上確實有這些 DOM 元素才進行計算，避免報錯
+        if (oldValEl && addValEl && totalValEl) {
+          var oldVal = parseInt(oldValEl.innerText) || 0;
+          var addVal = parseInt(addValEl.value) || 0;
+          
+          // 保留你的 Math.max(0, ...) 防呆邏輯，確保總計不為負數
+          totalValEl.innerText = Math.max(0, oldVal + addVal);
+        }
+      });
+    }
+
+    function closePortfolioModal() { 
+      portfolioModalObj = bootstrap.Modal.getOrCreateInstance(document.getElementById('portfolioModal'));
+      portfolioModalObj.hide(); 
+    }
+
+    function savePortfolioChanges() {
+      var studentId = document.getElementById('edit-student-id').value;
+      if (!studentId) return;
+
+      // 1. 取得目前畫面加總後的最新數值 (對應 total-xxx 欄位)
+      var totalLearn   = parseInt(document.getElementById('total-learn').innerText) || 0;
+      var totalActivity= parseInt(document.getElementById('total-activity').innerText) || 0;
+      var totalContest = parseInt(document.getElementById('total-contest').innerText) || 0;
+      var totalSkills  = parseInt(document.getElementById('total-skills').innerText) || 0;
+      // 🔥 新增：取得最新計算後的遲到與缺席總次數
+      var totalLate    = parseInt(document.getElementById('total-late').innerText) || 0;
+      var totalAbsent  = parseInt(document.getElementById('total-absent').innerText) || 0;
+
+      // 2. 處理動態里程碑（維持你原本的邏輯）
+      var updatedMilestones = [].concat(currentOldMilestones);
+      
+      // (處理競賽獎項快速欄位)
+      var cTitle = document.getElementById('adm-contest-title').value.trim();
+      var cDesc = document.getElementById('adm-contest-desc').value.trim();
+      if(cTitle) {
+        updatedMilestones.push({ type: "🏅 競賽獎項", title: cTitle, desc: cDesc, date: new Date().toLocaleDateString() });
+      }
+      
+      // (處理專業技術快速欄位)
+      var sTitle = document.getElementById('adm-skill-title').value.trim();
+      var sDesc = document.getElementById('adm-skill-desc').value.trim();
+      if(sTitle) {
+        updatedMilestones.push({ type: "🛠️ 專業技術", title: sTitle, desc: sDesc, date: new Date().toLocaleDateString() });
+      }
+
+      // (處理本次新增的違規紀錄快速欄位)
+      var vType = document.getElementById('adm-violation-type').value;
+      var vDesc = document.getElementById('adm-violation-desc').value.trim();
+      if(vType) {
+        updatedMilestones.push({ type: "⚠️ 違規紀錄", title: vType, desc: vDesc, date: new Date().toLocaleDateString() });
+      }
+
+      // 3. 🧩 完美打包：建構準備傳回後台的 newPortfolioObj
+      var newPortfolioObj = {
+        learnHours: totalLearn,
+        activityHours: totalActivity,
+        contests: totalContest,
+        skills: totalSkills,
+        late: totalLate,       // 🔥 寫入新結構：遲到總次數
+        absent: totalAbsent,   // 🔥 寫入新結構：缺席總次數
+        milestones: updatedMilestones
+      };
+
+      // 4. 🚀 呼叫後台 Apps Script 函式
+      var submitBtn = document.getElementById('portfolio-submit-btn');
+      if(submitBtn) { submitBtn.disabled = true; submitBtn.innerHTML = '正在儲存...'; }
+
+      google.script.run
+        .withSuccessHandler(function(res) {
+          if(res.success) {
+            alert(res.message);
+            
+            // 🌟 關鍵同步：同時更新前端快取 allMembersCached，避免不重整網頁時資料不同步
+            var member = allMembersCached.find(function(i) { return i.studentId === studentId; });
+            if(member) {
+              member.portfolio = newPortfolioObj; // 更新快取
+            }
+            
+            portfolioModalObj.hide();
+            if(typeof refreshAdminTable === 'function') { refreshAdminTable(); } // 如果你有刷新表格的函式就呼叫
+          } else {
+            alert(res.message);
+            if(submitBtn) { submitBtn.disabled = false; submitBtn.innerHTML = '確認儲存修改'; }
+          }
+        })
+        .withFailureHandler(function(err) {
+          alert("系統連線失敗：" + err);
+          if(submitBtn) { submitBtn.disabled = false; submitBtn.innerHTML = '確認儲存修改'; }
+        })
+        .updateMemberPortfolio(studentId, newPortfolioObj); // 呼叫你的 GAS 後台
+    }
+
+    // ==========================================
+    // 成員註冊與審批模組 (Registration & Approval)
+    // ==========================================
+    function handleRegister(e) {
+      e.preventDefault();
+      var member = {
+        studentId: document.getElementById('reg-id').value, 
+        password: document.getElementById('reg-pwd').value, 
+        name: document.getElementById('reg-name').value, 
+        className: document.getElementById('reg-class').value, 
+        phone: document.getElementById('reg-phone').value,
+        parentName: document.getElementById('reg-pname').value, 
+        parentPhone: document.getElementById('reg-pphone').value, 
+        relationship: document.getElementById('reg-prel').value, 
+        photoBase64: null
+      };
+      var file = document.getElementById('reg-photo').files[0];
+      if(file) {
+        var reader = new FileReader(); 
+        reader.onload = function(ev){ member.photoBase64 = ev.target.result; doReg(member); }; 
+        reader.readAsDataURL(file);
+      } else { 
+        doReg(member); 
+      }
+    }
+    
+    function doReg(m) { 
+      showLoading(true); 
+      google.script.run
+        .withSuccessHandler(function(res){ 
+          showLoading(false); 
+          alert(res.message); 
+          if(res.success) switchView('login-view'); 
+        })
+        .withFailureHandler(function(err){
+          showLoading(false);
+          alert("註冊通訊失敗：" + err);
+        })
+        .registerMember(m); 
+    }
+
+    function handleApprove(id) { 
+      if(confirm('核准此成員加入？')){ 
+        showLoading(true); 
+        google.script.run
+          .withSuccessHandler(function(){ loadAdminData(); })
+          .withFailureHandler(function(err){ showLoading(false); alert("審批失敗：" + err); })
+          .approveMember(id); 
+      } 
+    }
+    
+    function handleDelete(id) { 
+      if(confirm('確定將此成員從名冊中移出刪除？')){ 
+        showLoading(true); 
+        google.script.run
+          .withSuccessHandler(function(){ loadAdminData(); })
+          .withFailureHandler(function(err){ showLoading(false); alert("刪除失敗：" + err); })
+          .deleteMember(id); 
+      } 
+    }
+
+    // 初始化網頁動態設定
+    document.addEventListener("DOMContentLoaded", function() { 
+      showLoading(false); 
+    });
+
+    // 範例：管理員按下提交鈕時封裝的物件
+    const adminPayload = {
+      memberName: document.getElementById("selectMember").value,
+      learnHours: document.getElementById("inputLearnHours").value,
+      activityHours: document.getElementById("inputActivityHours").value,
+      newContestTitle: "", 
+      newContestDesc: "",
+      newSkillTitle: "",
+      newSkillDesc: "",
+      
+      // 新功能對接欄位
+      violationType: document.getElementById("violationTypeSelect").value, // 可提供下拉選單："遲到"、"缺席"、"其它違規事項"
+      violationDesc: document.getElementById("violationDescTextarea").value // 詳細事由
+    };
+
+    // 呼叫後端 Google Apps Script
+    google.script.run
+      .withSuccessHandler(res => alert(res.message))
+      .updateMemberPortfolioByAdmin(adminPayload);
+
+    // 前端時間軸元件渲染邏輯參考
+    portfolio.milestones.forEach(item => {
+      let badgeColor = "bg-primary";
+      if (item.type === "award") badgeColor = "bg-warning text-dark";
+      if (item.type === "violation") badgeColor = "bg-danger"; // 🔴 違規案件自動變紅章
+
+      // 渲染 HTML 結構...
+    });
+
+
+
+  </script>
+  <!-- Bootstrap 5 JS Bundle -->
+  <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/js/bootstrap.bundle.min.js"></script>
+</body>
+</html>
