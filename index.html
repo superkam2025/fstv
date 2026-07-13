@@ -835,7 +835,7 @@
       }
 
       showLoading(true);
-      google.script.run
+      fetch("https://script.google.com/macros/s/AKfycbynEA1QcyEF6a0UMHjex87Yr-WhgDcZEnCwFXiakbxr7QAXbWSGCPLUzl09v6etG0KGbA/exec" + "?action=getBorrowRecords")
         .withSuccessHandler(function(res) {
           showLoading(false); // 💡 一旦後端響應，立即安全關閉 Loading 遮罩
           
@@ -921,7 +921,7 @@
 
       var payload = { activityName: activityName, date: dateStr, memberName: loggedInUserSession ? loggedInUserSession.name : "", location: "💻 剪輯已完成" };
       showLoading(true);
-      google.script.run
+      fetch("https://script.google.com/macros/s/AKfycbynEA1QcyEF6a0UMHjex87Yr-WhgDcZEnCwFXiakbxr7QAXbWSGCPLUzl09v6etG0KGbA/exec" + "?action=getBorrowRecords")
         .withSuccessHandler(function(res) {
           showLoading(false); 
           alert(res.message); 
@@ -970,7 +970,7 @@
       checkInModalObj = bootstrap.Modal.getOrCreateInstance(document.getElementById('checkInModal'));
       checkInModalObj.hide();
 
-      google.script.run
+      fetch("https://script.google.com/macros/s/AKfycbynEA1QcyEF6a0UMHjex87Yr-WhgDcZEnCwFXiakbxr7QAXbWSGCPLUzl09v6etG0KGbA/exec" + "?action=getBorrowRecords")
         .withSuccessHandler(function(res) {
           showLoading(false); 
           alert(res.message); 
@@ -987,7 +987,7 @@
 
     function refreshUserProfileAndDuty() {
       if (loggedInUserSession) {
-        google.script.run
+        fetch("https://script.google.com/macros/s/AKfycbynEA1QcyEF6a0UMHjex87Yr-WhgDcZEnCwFXiakbxr7QAXbWSGCPLUzl09v6etG0KGbA/exec" + "?action=getBorrowRecords")
           .withSuccessHandler(function(newProfile) {
             if (newProfile.success) { 
               loggedInUserSession.memberData = newProfile.memberData; 
@@ -1015,7 +1015,7 @@
     function loadDutyDataMember() {
       var curUserName = loggedInUserSession ? loggedInUserSession.name : "";
       
-      google.script.run
+      fetch("https://script.google.com/macros/s/AKfycbynEA1QcyEF6a0UMHjex87Yr-WhgDcZEnCwFXiakbxr7QAXbWSGCPLUzl09v6etG0KGbA/exec" + "?action=getBorrowRecords")
         .withSuccessHandler(function(duties) {
           cachedDuties = duties;
           var tbody = document.getElementById('duty-tbody'); 
@@ -1107,7 +1107,7 @@
 
     // 管理員看板（管理員不隱藏任何紀錄，方便追蹤）
     function loadDutyDataAdmin() {
-      google.script.run
+      fetch("https://script.google.com/macros/s/AKfycbynEA1QcyEF6a0UMHjex87Yr-WhgDcZEnCwFXiakbxr7QAXbWSGCPLUzl09v6etG0KGbA/exec" + "?action=getBorrowRecords")
         .withSuccessHandler(function(duties) {
           cachedDuties = duties;
           var tbody = document.getElementById('duty-tbody'); tbody.innerHTML = '';
@@ -1176,7 +1176,7 @@
       showLoading(true); 
       dutyModalObj = bootstrap.Modal.getOrCreateInstance(document.getElementById('dutyModal'));
       dutyModalObj.hide();
-      google.script.run
+      fetch("https://script.google.com/macros/s/AKfycbynEA1QcyEF6a0UMHjex87Yr-WhgDcZEnCwFXiakbxr7QAXbWSGCPLUzl09v6etG0KGbA/exec" + "?action=getBorrowRecords")
         .withSuccessHandler(function(res) { 
           showLoading(false); 
           alert(res.message); 
@@ -1264,7 +1264,7 @@
 
     function loadAdminData() {
       showLoading(true);
-      google.script.run
+      fetch("https://script.google.com/macros/s/AKfycbynEA1QcyEF6a0UMHjex87Yr-WhgDcZEnCwFXiakbxr7QAXbWSGCPLUzl09v6etG0KGbA/exec" + "?action=getBorrowRecords")
         .withSuccessHandler(function(members) {
           showLoading(false); allMembersCached = members; 
           var tbody = document.getElementById('admin-tbody'); tbody.innerHTML = '';
@@ -1286,7 +1286,7 @@
 
     function initAdminMemberDropdown() {
       var selectEl = document.getElementById('adm-member-name'); if (!selectEl) return;
-      google.script.run
+      fetch("https://script.google.com/macros/s/AKfycbynEA1QcyEF6a0UMHjex87Yr-WhgDcZEnCwFXiakbxr7QAXbWSGCPLUzl09v6etG0KGbA/exec" + "?action=getBorrowRecords")
         .withSuccessHandler(function(res) {
           if (res.success && res.memberList) {
             selectEl.innerHTML = '<option value="">-- 請選擇成員 --</option>';
@@ -1322,7 +1322,7 @@
         violationDesc: document.getElementById('adm-violation-desc').value
       };
       
-      google.script.run
+      fetch("https://script.google.com/macros/s/AKfycbynEA1QcyEF6a0UMHjex87Yr-WhgDcZEnCwFXiakbxr7QAXbWSGCPLUzl09v6etG0KGbA/exec" + "?action=getBorrowRecords")
         .withSuccessHandler(function(res) {
           submitBtn.disabled = false; submitBtn.innerHTML = '<i class="fa-solid fa-cloud-arrow-up me-1"></i>確認更新學生成長檔案';
           alert(res.message); 
@@ -1405,7 +1405,7 @@
       borrowModalObj = bootstrap.Modal.getOrCreateInstance(document.getElementById('borrowModal'));
       borrowModalObj.hide();
 
-      google.script.run
+      fetch("https://script.google.com/macros/s/AKfycbynEA1QcyEF6a0UMHjex87Yr-WhgDcZEnCwFXiakbxr7QAXbWSGCPLUzl09v6etG0KGbA/exec" + "?action=getBorrowRecords")
         .withSuccessHandler(function(res){ 
           showLoading(false); 
           alert(res.message); 
@@ -1425,7 +1425,7 @@
       
       recordsBody.innerHTML = '<tr><td colspan="9" class="text-center"><div class="spinner-border spinner-border-sm text-secondary me-2"></div>資料載入中...</td></tr>';
 
-      google.script.run
+      fetch("https://script.google.com/macros/s/AKfycbynEA1QcyEF6a0UMHjex87Yr-WhgDcZEnCwFXiakbxr7QAXbWSGCPLUzl09v6etG0KGbA/exec" + "?action=getBorrowRecords")
         .withSuccessHandler(function(records) {
           console.log("借用紀錄：", records);
           var html = "";
@@ -1559,7 +1559,7 @@
       if(submitBtn) { submitBtn.disabled = true; submitBtn.innerHTML = '正在同步儲存...'; }
 
       // 🚀 呼叫後台 GAS 寫入試算表
-      google.script.run
+      fetch("https://script.google.com/macros/s/AKfycbynEA1QcyEF6a0UMHjex87Yr-WhgDcZEnCwFXiakbxr7QAXbWSGCPLUzl09v6etG0KGbA/exec" + "?action=getBorrowRecords")
         .withSuccessHandler(function(res) {
           if(res.success) {
             alert(res.message);
@@ -1624,7 +1624,7 @@
       };
 
       // 3. 🚀 執行後端 GAS 核心程序
-      google.script.run
+      fetch("https://script.google.com/macros/s/AKfycbynEA1QcyEF6a0UMHjex87Yr-WhgDcZEnCwFXiakbxr7QAXbWSGCPLUzl09v6etG0KGbA/exec" + "?action=getBorrowRecords")
         .withSuccessHandler(function(response) {
           showLoading(false);
           if (response.success) {
@@ -1781,7 +1781,7 @@
       var submitBtn = document.getElementById('portfolio-submit-btn');
       if(submitBtn) { submitBtn.disabled = true; submitBtn.innerHTML = '正在儲存...'; }
 
-      google.script.run
+      fetch("https://script.google.com/macros/s/AKfycbynEA1QcyEF6a0UMHjex87Yr-WhgDcZEnCwFXiakbxr7QAXbWSGCPLUzl09v6etG0KGbA/exec" + "?action=getBorrowRecords")
         .withSuccessHandler(function(res) {
           if(res.success) {
             alert(res.message);
@@ -1834,7 +1834,7 @@
     
     function doReg(m) { 
       showLoading(true); 
-      google.script.run
+      fetch("https://script.google.com/macros/s/AKfycbynEA1QcyEF6a0UMHjex87Yr-WhgDcZEnCwFXiakbxr7QAXbWSGCPLUzl09v6etG0KGbA/exec" + "?action=getBorrowRecords")
         .withSuccessHandler(function(res){ 
           showLoading(false); 
           alert(res.message); 
@@ -1850,7 +1850,7 @@
     function handleApprove(id) { 
       if(confirm('核准此成員加入？')){ 
         showLoading(true); 
-        google.script.run
+        fetch("https://script.google.com/macros/s/AKfycbynEA1QcyEF6a0UMHjex87Yr-WhgDcZEnCwFXiakbxr7QAXbWSGCPLUzl09v6etG0KGbA/exec" + "?action=getBorrowRecords")
           .withSuccessHandler(function(){ loadAdminData(); })
           .withFailureHandler(function(err){ showLoading(false); alert("審批失敗：" + err); })
           .approveMember(id); 
@@ -1860,7 +1860,7 @@
     function handleDelete(id) { 
       if(confirm('確定將此成員從名冊中移出刪除？')){ 
         showLoading(true); 
-        google.script.run
+        fetch("https://script.google.com/macros/s/AKfycbynEA1QcyEF6a0UMHjex87Yr-WhgDcZEnCwFXiakbxr7QAXbWSGCPLUzl09v6etG0KGbA/exec" + "?action=getBorrowRecords")
           .withSuccessHandler(function(){ loadAdminData(); })
           .withFailureHandler(function(err){ showLoading(false); alert("刪除失敗：" + err); })
           .deleteMember(id); 
@@ -1888,7 +1888,7 @@
     };
 
     // 呼叫後端 Google Apps Script
-    google.script.run
+    fetch("https://script.google.com/macros/s/AKfycbynEA1QcyEF6a0UMHjex87Yr-WhgDcZEnCwFXiakbxr7QAXbWSGCPLUzl09v6etG0KGbA/exec" + "?action=getBorrowRecords")
       .withSuccessHandler(res => alert(res.message))
       .updateMemberPortfolioByAdmin(adminPayload);
 
