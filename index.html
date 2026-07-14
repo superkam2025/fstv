@@ -413,7 +413,7 @@
                 <div class="col-12 col-md-6"><label class="form-label small fw-bold text-secondary">學號 (作為登入帳號)</label><input type="text" id="reg-id" class="form-control" required></div>
                 <div class="col-12 col-md-6"><label class="form-label small fw-bold text-secondary">設定密碼</label><input type="password" id="reg-pwd" class="form-control" required></div>
                 <div class="col-12 col-md-4"><label class="form-label small fw-bold text-secondary">真實姓名</label><input type="text" id="reg-name" class="form-control" required></div>
-                <div class="col-12 col-md-4"><label class="form-label small fw-bold text-secondary">班級學號 (例: s1r01)</label><input type="text" id="reg-class" class="form-control" placeholder="例: 高一A 01號" required></div>
+                <div class="col-12 col-md-4"><label class="form-label small fw-bold text-secondary">班級學號 (例: s1r01)</label><input type="text" id="reg-class" class="form-control" placeholder="例: s1r01" required></div>
                 <div class="col-12 col-md-4"><label class="form-label small fw-bold text-secondary">個人聯絡電話</label><input type="tel" id="reg-phone" class="form-control" required></div>
                 <div class="col-12 col-md-4"><label class="form-label small fw-bold text-secondary">家長姓名</label><input type="text" id="reg-pname" class="form-control" required></div>
                 <div class="col-12 col-md-4"><label class="form-label small fw-bold text-secondary">與學生關係</label><input type="text" id="reg-prel" class="form-control" placeholder="如: 父親、母親" required></div>
@@ -1500,13 +1500,21 @@
     function openBorrowModal() {
       document.getElementById('borrow-form').reset();
       
-      // 取得在地時間的 ISO 字串 (修正時區差)
+      // 1. 精準取得在地 YYYY-MM-DD
       var now = new Date();
-      var localDate = now.toLocaleDateString('fr-CA'); // 格式化為 YYYY-MM-DD
-      var localTime = now.toTimeString().split(' ')[0].substring(0, 5); // 格式化為 HH:MM
+      var year = now.getFullYear();
+      var month = String(now.getMonth() + 1).padStart(2, '0');
+      var day = String(now.getDate()).padStart(2, '0');
+      var localDate = `${year}-${month}-${day}`;
       
+      // 2. 精準取得在地 HH:MM (並確保補零)
+      var hours = String(now.getHours()).padStart(2, '0');
+      var minutes = String(now.getMinutes()).padStart(2, '0');
+      var localTime = `${hours}:${minutes}`;
+      
+      // 3. 填入輸入框
       document.getElementById('borrow-date').value = localDate;
-      document.getElementById('borrow-time').value = localTime; // 自動帶入目前時間
+      document.getElementById('borrow-time').value = localTime;
     
       if (loggedInUserSession) {
         document.getElementById('borrow-member-block').style.display = 'block'; 
