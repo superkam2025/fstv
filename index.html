@@ -2,29 +2,54 @@
 <html lang="zh-TW">
 <head>
   <meta charset="UTF-8">
-  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
   <title>校園電視台綜合管理系統</title>
-  <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/css/bootstrap.min.css" rel="stylesheet">
-  <link href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css" rel="stylesheet">
+  <!-- 引入最新版 Bootstrap 5 & Font Awesome -->
+  <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.2/dist/css/bootstrap.min.css" rel="stylesheet">
+  <link href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.1/css/all.min.css" rel="stylesheet">
   
   <style>
     :root {
       --sidebar-width: 260px;
-      --primary-color: #2c3e50;
-      --accent-color: #18bc9c;
+      --primary-color: #1e293b; /* 質感深藍灰 */
+      --accent-color: #0ea5e9;  /* 現代感天空藍 */
+      --success-color: #10b981; /* 活力綠 */
+      --danger-color: #ef4444;   /* 亮警示紅 */
+      --warning-color: #f59e0b;  /* 琥珀金 */
+      --bg-light: #f8fafc;
+      --border-radius-lg: 16px;
+      --border-radius-md: 12px;
+      --transition-base: all 0.25s ease-in-out;
     }
     
     body {
-      font-family: "Helvetica Neue", Arial, "Noto Sans TC", sans-serif;
-      background-color: #f8f9fa;
+      font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, "Helvetica Neue", Arial, "Noto Sans TC", sans-serif;
+      background-color: var(--bg-light);
+      color: #334155;
       overflow-x: hidden;
+      -webkit-font-smoothing: antialiased;
     }
 
-    /* 全域 Loading 遮罩 */
+    /* 全域隱藏滾動條但保持滾動 */
+    ::-webkit-scrollbar {
+      width: 6px;
+      height: 6px;
+    }
+    ::-webkit-scrollbar-track {
+      background: transparent;
+    }
+    ::-webkit-scrollbar-thumb {
+      background: #cbd5e1;
+      border-radius: 4px;
+    }
+
+    /* 全域 Loading 遮罩 - 磨砂玻璃效果 */
     #loading-mask {
       position: fixed;
       top: 0; left: 0; width: 100vw; height: 100vh;
-      background: rgba(255, 255, 255, 0.85);
+      background: rgba(255, 255, 255, 0.7);
+      backdrop-filter: blur(8px);
+      -webkit-backdrop-filter: blur(8px);
       z-index: 9999;
       display: flex;
       flex-direction: column;
@@ -32,7 +57,19 @@
       align-items: center;
     }
 
-    /* 側邊欄與主架構 */
+    /* 頂部手機導覽列（僅在手機版顯示） */
+    .mobile-header {
+      display: none;
+      background-color: var(--primary-color);
+      color: white;
+      padding: 12px 20px;
+      position: sticky;
+      top: 0;
+      z-index: 1050;
+      box-shadow: 0 4px 12px rgba(0,0,0,0.1);
+    }
+
+    /* 側邊欄（電腦版固定，手機版隱藏） */
     .sidebar {
       width: var(--sidebar-width);
       height: 100vh;
@@ -40,164 +77,278 @@
       top: 0; left: 0;
       background-color: var(--primary-color);
       color: #fff;
-      z-index: 100;
-      transition: all 0.3s;
+      z-index: 1040;
+      transition: var(--transition-base);
+      box-shadow: 4px 0 15px rgba(0,0,0,0.05);
+      display: flex;
+      flex-direction: column;
     }
     
+    /* 桌面版主內容區 */
     .main-content {
       margin-left: var(--sidebar-width);
-      padding: 30px;
+      padding: 40px;
       min-height: 100vh;
-      transition: all 0.3s;
+      transition: var(--transition-base);
     }
 
     .sidebar-brand {
-      padding: 20px;
-      font-size: 1.25rem;
-      font-weight: bold;
-      background: rgba(0,0,0,0.2);
+      padding: 24px 20px;
+      font-size: 1.35rem;
+      font-weight: 700;
+      letter-spacing: 0.5px;
+      border-bottom: 1px solid rgba(255,255,255,0.08);
       text-align: center;
     }
 
     .sidebar-menu {
       padding: 15px 0;
+      flex-grow: 1;
+      overflow-y: auto;
     }
 
     .sidebar-menu a {
       display: flex;
       align-items: center;
-      padding: 12px 25px;
-      color: #ecf0f1;
+      padding: 14px 24px;
+      color: #94a3b8;
       text-decoration: none;
-      transition: all 0.2s;
+      transition: var(--transition-base);
       cursor: pointer;
+      font-weight: 500;
     }
 
     .sidebar-menu a:hover, .sidebar-menu a.active {
-      background-color: var(--accent-color);
-      color: white;
+      background-color: rgba(255, 255, 255, 0.05);
+      color: #fff;
+      border-left: 4px solid var(--accent-color);
+      padding-left: 20px;
     }
 
     .sidebar-menu a i {
-      margin-right: 12px;
+      margin-right: 14px;
       width: 20px;
       text-align: center;
+      font-size: 1.1rem;
     }
 
     /* 視圖區塊控制 */
     .view-section {
       display: none;
+      animation: fadeIn 0.35s ease-in-out;
     }
     .view-section.active {
       display: block;
     }
 
-    /* 成長檔案與時間軸樣式 */
-    .profile-card {
+    @keyframes fadeIn {
+      from { opacity: 0; transform: translateY(10px); }
+      to { opacity: 1; transform: translateY(0); }
+    }
+
+    /* 現代化卡片與介面設計 */
+    .card-modern {
       background: white;
-      border-radius: 15px;
-      box-shadow: 0 4px 15px rgba(0,0,0,0.05);
+      border-radius: var(--border-radius-lg);
+      border: 1px solid rgba(226, 232, 240, 0.8);
+      box-shadow: 0 10px 25px -5px rgba(0, 0, 0, 0.02), 0 8px 10px -6px rgba(0, 0, 0, 0.02);
+      transition: var(--transition-base);
+    }
+    .card-modern:hover {
+      box-shadow: 0 20px 25px -5px rgba(0, 0, 0, 0.05);
+    }
+
+    /* 大頭照與狀態點綴 */
+    .profile-card img {
+      border: 5px solid #fff;
+      box-shadow: 0 8px 20px rgba(0,0,0,0.1);
     }
 
     .table-img {
-      width: 45px;
-      height: 45px;
+      width: 48px;
+      height: 48px;
       object-fit: cover;
       border-radius: 50%;
+      border: 2px solid #fff;
+      box-shadow: 0 4px 8px rgba(0,0,0,0.08);
     }
 
+    /* 時數數據小方塊升級 */
+    .stat-box {
+      background: #ffffff;
+      border-radius: var(--border-radius-md);
+      padding: 20px;
+      text-align: center;
+      border: 1px solid #f1f5f9;
+      box-shadow: 0 4px 6px -1px rgba(0,0,0,0.01);
+      transition: var(--transition-base);
+    }
+    .stat-box:hover {
+      transform: translateY(-3px);
+    }
+
+    /* 完美流線時間軸（Timeline） */
     .modal-timeline-container {
       list-style: none;
       position: relative;
-      padding-left: 20px;
+      padding-left: 24px;
     }
     .modal-timeline-container::before {
       content: '';
       position: absolute;
-      left: 5px; top: 0; bottom: 0;
-      width: 2px; background: #e9ecef;
+      left: 6px; top: 0; bottom: 0;
+      width: 2px; background: #e2e8f0;
     }
     .modal-timeline-item {
       position: relative;
-      margin-bottom: 20px;
+      margin-bottom: 24px;
     }
     .modal-timeline-item::before {
       content: '';
       position: absolute;
-      left: -19px; top: 4px;
-      width: 10px; height: 10px;
-      border-radius: 50%; background: #0d6efd;
+      left: -23px; top: 6px;
+      width: 12px; height: 12px;
+      border-radius: 50%; background: var(--accent-color);
+      border: 2px solid #fff;
+      box-shadow: 0 0 0 3px rgba(14, 165, 233, 0.15);
     }
     .modal-timeline-item.award::before {
-      background: #ffc107;
-      box-shadow: 0 0 0 3px rgba(255,193,7,0.3);
+      background: var(--warning-color);
+      box-shadow: 0 0 0 3px rgba(245, 158, 11, 0.15);
+    }
+    .modal-timeline-item.violation::before {
+      background: var(--danger-color);
+      box-shadow: 0 0 0 3px rgba(239, 68, 68, 0.15);
     }
     .modal-timeline-date {
-      font-size: 0.75rem;
-      color: #6c757d;
-      font-weight: bold;
+      font-size: 0.8rem;
+      color: #94a3b8;
+      font-weight: 600;
+      margin-bottom: 4px;
     }
 
-    /* 高密集成員與器材借用表格專屬壓縮排版 */
-    .table-responsive-compact {
-      width: 100%;
-      overflow-x: auto;
-      -webkit-overflow-scrolling: touch;
-      background: #ffffff;
-      border-radius: 8px;
-      box-shadow: 0 2px 8px rgba(0,0,0,0.04);
+    /* 表格樣式美化與行動端自適應 */
+    .table-modern {
+      border-collapse: separate;
+      border-spacing: 0 8px;
     }
-    .table-compact {
-      font-size: 0.85rem !important;
-      white-space: nowrap;
-      margin-bottom: 0;
+    .table-modern thead th {
+      background-color: transparent !important;
+      border: none;
+      color: #64748b;
+      font-weight: 600;
+      font-size: 0.85rem;
+      text-transform: uppercase;
+      letter-spacing: 0.5px;
+      padding: 12px 16px;
     }
-    .table-compact th {
-      background-color: #f1f4f6 !important;
-      color: #34495e !important;
-      font-weight: 600 !important;
-      padding: 8px 10px !important;
-      border-bottom: 2px solid #dee2e6 !important;
+    .table-modern tbody tr {
+      background-color: #fff;
+      box-shadow: 0 2px 4px rgba(0,0,0,0.02);
+      border-radius: var(--border-radius-md);
+      transition: var(--transition-base);
     }
-    .table-compact td {
-      padding: 8px 10px !important;
-      vertical-align: middle !important;
+    .table-modern tbody tr:hover {
+      background-color: #f8fafc;
     }
-    .cell-wrap-text {
-      white-space: normal !important;
-      word-break: break-all !important;
-      min-width: 130px;
-      max-width: 220px;
+    .table-modern tbody td {
+      border: none;
+      padding: 16px;
+      color: #475569;
     }
-    .cell-time {
-      min-width: 140px;
+    .table-modern tbody tr td:first-child {
+      border-top-left-radius: var(--border-radius-md);
+      border-bottom-left-radius: var(--border-radius-md);
+    }
+    .table-modern tbody tr td:last-child {
+      border-top-right-radius: var(--border-radius-md);
+      border-bottom-right-radius: var(--border-radius-md);
     }
 
+    /* 行動端專屬卡片清單（替代大表格避免橫向滾動崩潰） */
+    .mobile-list-card {
+      display: none;
+    }
+
+    /* 手機版按鈕點擊範圍優化 (Touch Target Size) */
+    .btn {
+      padding: 10px 18px;
+      font-weight: 600;
+      border-radius: var(--border-radius-md);
+      transition: var(--transition-base);
+    }
+    .btn-sm {
+      padding: 8px 14px;
+      font-size: 0.85rem;
+    }
     .btn-xs {
-      padding: 1px 5px;
+      padding: 6px 10px;
       font-size: 0.75rem;
-      border-radius: 3px;
+      border-radius: 6px;
     }
 
-    /* 違規紀錄時間軸紅色樣式 */
-    .modal-timeline-item.violation::before {
-      background: #dc3545 !important;
-      box-shadow: 0 0 0 3px rgba(220,53,69,0.3) !important;
+    /* ==========================================
+     * 響應式佈局 (Responsive Media Queries)
+     * ========================================== */
+    @media (max-width: 991.98px) {
+      .sidebar {
+        transform: translateX(-100%); /* 隱藏傳統側邊欄 */
+      }
+      .main-content {
+        margin-left: 0;
+        padding: 20px;
+        padding-top: 30px;
+      }
+      .mobile-header {
+        display: flex;
+        align-items: center;
+        justify-content: space-between;
+      }
+      
+      /* 強制隱藏過寬的表格，顯示行動端專用卡片清單 */
+      .table-responsive {
+        display: none !important;
+      }
+      .mobile-list-card {
+        display: block;
+      }
     }
   </style>
 </head>
 <body>
 
-  <!-- 全域讀取特效遮罩 -->
-  <div id="loading-mask">
-    <div class="spinner-border text-primary shadow" style="width: 3rem; height: 3rem;" role="status"></div>
-    <span class="mt-3 fw-bold text-secondary">系統數據傳輸中，請稍候...</span>
+  <!-- 手機版頂部導覽（含動態抽屜按鈕） -->
+  <header class="mobile-header">
+    <div class="d-flex align-items-center">
+      <button class="btn btn-link text-white p-0 me-3 fs-3" type="button" data-bs-toggle="offcanvas" data-bs-target="#mobileSidebar" aria-controls="mobileSidebar">
+        <i class="fa-solid fa-bars"></i>
+      </button>
+      <span class="fw-bold fs-5"><i class="fa-solid fa-tv me-2"></i>校園電視台</span>
+    </div>
+  </header>
+
+  <!-- 手機版動態抽屜式側邊欄 (Offcanvas Sidebar) -->
+  <div class="offcanvas offcanvas-start bg-dark text-white" tabindex="-1" id="mobileSidebar" aria-labelledby="mobileSidebarLabel" style="width: var(--sidebar-width);">
+    <div class="offcanvas-header border-bottom border-secondary">
+      <h5 class="offcanvas-title" id="mobileSidebarLabel"><i class="fa-solid fa-tv me-2 text-info"></i>系統選單</h5>
+      <button type="button" class="btn-close btn-close-white" data-bs-dismiss="offcanvas" aria-label="Close"></button>
+    </div>
+    <div class="offcanvas-body p-0">
+      <div class="sidebar-menu">
+        <a id="menu-login-mob" onclick="switchView('login-view')" class="active" data-bs-dismiss="offcanvas"><i class="fa-solid fa-right-to-bracket"></i>帳號驗證登入</a>
+        <a id="menu-register-mob" onclick="switchView('register-view')" data-bs-dismiss="offcanvas"><i class="fa-solid fa-user-plus"></i>新成員申請註冊</a>
+        <a id="menu-dashboard-mob" onclick="switchView('member-dashboard-view')" data-bs-dismiss="offcanvas"><i class="fa-solid fa-chart-line"></i>個人專屬檔案</a>
+        <a id="menu-duty-mob" onclick="switchView('duty-table-view')" data-bs-dismiss="offcanvas"><i class="fa-solid fa-calendar-check"></i>活動值日簽到</a>
+        <a id="menu-borrow-mob" onclick="switchView('borrow-view')" data-bs-dismiss="offcanvas"><i class="fa-solid fa-toolbox"></i>器材借用綜合表</a>
+        <a id="menu-admin-mob" onclick="switchView('admin-panel-view')" data-bs-dismiss="offcanvas" style="border-top: 1px solid rgba(255,255,255,0.1);"><i class="fa-solid fa-user-shield"></i>高階管理控制台</a>
+      </div>
+    </div>
   </div>
 
-  <!-- 側邊導覽列 -->
+  <!-- 電腦版靜態側邊導覽列（大螢幕自動顯示） -->
   <div class="sidebar">
     <div class="sidebar-brand">
-      <i class="fa-solid fa-tv me-2"></i>校園電視台系統
+      <i class="fa-solid fa-tv me-2 text-info"></i>校園電視台系統
     </div>
     <div class="sidebar-menu">
       <a id="menu-login" onclick="switchView('login-view')" class="active"><i class="fa-solid fa-right-to-bracket"></i>帳號驗證登入</a>
@@ -205,40 +356,46 @@
       <a id="menu-dashboard" onclick="switchView('member-dashboard-view')"><i class="fa-solid fa-chart-line"></i>個人專屬檔案</a>
       <a id="menu-duty" onclick="switchView('duty-table-view')"><i class="fa-solid fa-calendar-check"></i>活動值日簽到</a>
       <a id="menu-borrow" onclick="switchView('borrow-view')"><i class="fa-solid fa-toolbox"></i>器材借用綜合表</a>
-      <a id="menu-admin" onclick="switchView('admin-panel-view')" style="border-top: 1px solid rgba(255,255,255,0.1);"><i class="fa-solid fa-user-shield"></i>高階管理員控制台</a>
+      <a id="menu-admin" onclick="switchView('admin-panel-view')" style="border-top: 1px solid rgba(255,255,255,0.1);"><i class="fa-solid fa-user-shield"></i>高階管理控制台</a>
     </div>
+  </div>
+
+  <!-- 全域讀取特效遮罩 -->
+  <div id="loading-mask">
+    <div class="spinner-border text-info shadow" style="width: 3rem; height: 3rem;" role="status"></div>
+    <span class="mt-3 fw-bold text-secondary">系統數據傳輸中，請稍候...</span>
   </div>
 
   <!-- 主內容顯示區 -->
   <div class="main-content">
-    <div class="d-flex justify-content-between align-items-center mb-4 pb-3 border-bottom">
+    <div class="d-flex flex-column flex-md-row justify-content-between align-items-md-center gap-3 mb-4 pb-4 border-bottom">
       <h3 id="page-title" class="fw-bold text-dark mb-0">歡迎登入系統</h3>
-      <div>
-        <span id="user-tag" class="badge bg-secondary p-2 me-2" style="display:none; font-size: 0.9rem;"></span>
-        <button id="logout-btn" class="btn btn-danger btn-sm text-white fw-bold" onclick="logout()" style="display:none;"><i class="fa-solid fa-power-off me-1"></i>登出</button>
+      <div class="d-flex gap-2 align-items-center">
+        <span id="user-tag" class="badge bg-dark p-2" style="display:none; font-size: 0.9rem;"></span>
+        <button id="logout-btn" class="btn btn-danger btn-sm text-white fw-bold shadow-sm" onclick="logout()" style="display:none;"><i class="fa-solid fa-power-off me-1"></i>登出</button>
       </div>
     </div>
 
     <!-- 區塊一：登入 -->
     <div id="login-view" class="view-section active">
-      <div class="row justify-content-center pt-4">
-        <div class="col-md-5">
-          <div class="card shadow border-0 p-4 rounded-4">
+      <div class="row justify-content-center pt-2">
+        <div class="col-12 col-md-8 col-lg-5">
+          <div class="card-modern p-4 p-md-5">
             <div class="text-center mb-4">
-              <div class="bg-primary text-white d-inline-block p-3 rounded-circle mb-2"><i class="fa-solid fa-lock fa-2xl"></i></div>
+              <div class="bg-light text-primary d-inline-block p-3 rounded-circle mb-3"><i class="fa-solid fa-shield-halved fa-2xl"></i></div>
               <h4 class="fw-bold text-dark">身分安全驗證</h4>
               <p class="text-muted small">請輸入學號與系統密碼以啟用完整權限</p>
             </div>
             <form id="login-form" onsubmit="handleLoginSubmit(event)">
               <div class="mb-3">
-                <label class="form-label fw-bold">帳號</label>
-                <div class="input-group"><span class="input-group-text"><i class="fa-solid fa-user"></i></span><input type="text" id="login-id" class="form-control" required placeholder="請輸入帳號名稱"></div>
+                <label class="form-label fw-bold small text-secondary">帳號 (學號)</label>
+                <div class="input-group"><span class="input-group-text bg-light border-end-0"><i class="fa-solid fa-user text-muted"></i></span><input type="text" id="login-id" class="form-control" required placeholder="請輸入學號"></div>
               </div>
               <div class="mb-4">
-                <label class="form-label fw-bold">安全存取密碼</label>
-                <div class="input-group"><span class="input-group-text"><i class="fa-solid fa-key"></i></span><input type="password" id="login-pwd" class="form-control" required placeholder="請輸入密碼"></div>
+                <label class="form-label fw-bold small text-secondary">安全存取密碼</label>
+                <div class="input-group"><span class="input-group-text bg-light border-end-0"><i class="fa-solid fa-key text-muted"></i></span><input type="password" id="login-pwd" class="form-control" required placeholder="請輸入密碼"></div>
               </div>
-              <button type="submit" class="btn btn-primary w-100 py-2 fw-bold shadow-sm">進行雙向安全驗證</button>
+              <button type="submit" class="btn btn-primary w-100 py-3 fw-bold shadow-sm" style="background-color: var(--accent-color); border:none;">進行雙向安全驗證</button>
             </form>
           </div>
         </div>
@@ -248,26 +405,26 @@
     <!-- 區塊二：成員註冊 -->
     <div id="register-view" class="view-section">
       <div class="row justify-content-center">
-        <div class="col-md-8">
-          <div class="card shadow border-0 p-4 rounded-4">
-            <h4 class="fw-bold text-dark mb-3"><i class="fa-solid fa-user-plus me-2 text-success"></i>新成員資料申請註冊</h4>
+        <div class="col-12 col-lg-9">
+          <div class="card-modern p-4 p-md-5">
+            <h4 class="fw-bold text-dark mb-4"><i class="fa-solid fa-user-plus me-2 text-success"></i>新成員資料申請註冊</h4>
             <form id="register-form" onsubmit="handleRegister(event)">
               <div class="row g-3">
-                <div class="col-md-6"><label class="form-label small fw-bold">學號 (作為登入帳號)</label><input type="text" id="reg-id" class="form-control" required></div>
-                <div class="col-md-6"><label class="form-label small fw-bold">設定密碼</label><input type="password" id="reg-pwd" class="form-control" required></div>
-                <div class="col-md-4"><label class="form-label small fw-bold">真實姓名</label><input type="text" id="reg-name" class="form-control" required></div>
-                <div class="col-md-4"><label class="form-label small fw-bold">班級座號 (例: 高一A 01號)</label><input type="text" id="reg-class" class="form-control" required></div>
-                <div class="col-md-4"><label class="form-label small fw-bold">個人聯絡電話</label><input type="tel" id="reg-phone" class="form-control" required></div>
-                <div class="col-md-4"><label class="form-label small fw-bold">家長姓名</label><input type="text" id="reg-pname" class="form-control" required></div>
-                <div class="col-md-4"><label class="form-label small fw-bold">與學生關係</label><input type="text" id="reg-prel" class="form-control" placeholder="如: 父親、母親" required></div>
-                <div class="col-md-4"><label class="form-label small fw-bold">家長緊急聯絡電話</label><input type="tel" id="reg-pphone" class="form-control" required></div>
-                <div class="col-md-12">
-                  <label class="form-label small fw-bold">個人大頭照辨識照片</label>
+                <div class="col-12 col-md-6"><label class="form-label small fw-bold text-secondary">學號 (作為登入帳號)</label><input type="text" id="reg-id" class="form-control" required></div>
+                <div class="col-12 col-md-6"><label class="form-label small fw-bold text-secondary">設定密碼</label><input type="password" id="reg-pwd" class="form-control" required></div>
+                <div class="col-12 col-md-4"><label class="form-label small fw-bold text-secondary">真實姓名</label><input type="text" id="reg-name" class="form-control" required></div>
+                <div class="col-12 col-md-4"><label class="form-label small fw-bold text-secondary">班級座號 (例: 高一A 01號)</label><input type="text" id="reg-class" class="form-control" placeholder="例: 高一A 01號" required></div>
+                <div class="col-12 col-md-4"><label class="form-label small fw-bold text-secondary">個人聯絡電話</label><input type="tel" id="reg-phone" class="form-control" required></div>
+                <div class="col-12 col-md-4"><label class="form-label small fw-bold text-secondary">家長姓名</label><input type="text" id="reg-pname" class="form-control" required></div>
+                <div class="col-12 col-md-4"><label class="form-label small fw-bold text-secondary">與學生關係</label><input type="text" id="reg-prel" class="form-control" placeholder="如: 父親、母親" required></div>
+                <div class="col-12 col-md-4"><label class="form-label small fw-bold text-secondary">家長緊急聯絡電話</label><input type="tel" id="reg-pphone" class="form-control" required></div>
+                <div class="col-12">
+                  <label class="form-label small fw-bold text-secondary">個人大頭照辨識照片</label>
                   <input type="file" id="reg-photo" class="form-control" accept="image/*" required>
-                  <div class="form-text">請上傳清晰個人五官照片。</div>
+                  <div class="form-text">請上傳清晰個人五官照片，以利日常簽到身分辨識。</div>
                 </div>
               </div>
-              <button type="submit" class="btn btn-success w-100 mt-4 py-2 fw-bold shadow-sm">提交新成員資格審查申請</button>
+              <button type="submit" class="btn btn-success w-100 mt-4 py-3 fw-bold shadow-sm" style="background-color: var(--success-color); border:none;">提交新成員資格審查申請</button>
             </form>
           </div>
         </div>
@@ -276,35 +433,36 @@
 
     <!-- 區塊三：內部成員儀表板 -->
     <div id="member-dashboard-view" class="view-section">
-      <div id="member-dashboard-alert" class="alert alert-warning shadow-sm"><i class="fa-solid fa-triangle-exclamation me-2"></i>請先完成【帳號驗證登入】以解鎖您的成長歷程檔案。</div>
+      <div id="member-dashboard-alert" class="alert alert-warning shadow-sm rounded-3"><i class="fa-solid fa-triangle-exclamation me-2"></i>請先完成【帳號驗證登入】以解鎖您的成長歷程檔案。</div>
       <div id="member-dashboard-content" style="display:none;">
         <div class="row g-4">
-          <div class="col-md-4">
-            <div class="profile-card p-4 text-center">
-              <img id="m-photo" src="https://via.placeholder.com/150" class="rounded-circle shadow-sm border border-4 border-white mb-3" style="width:130px; height:130px; object-fit:cover;">
+          <div class="col-12 col-lg-4">
+            <div class="card-modern p-4 text-center profile-card">
+              <img id="m-photo" src="https://via.placeholder.com/150" class="rounded-circle shadow mb-3" style="width:140px; height:140px; object-fit:cover;">
               <h4 id="m-name" class="fw-bold text-dark mb-1">---</h4>
-              <p id="m-class" class="text-muted small mb-2">---</p>
-              <div id="p-stars" class="text-warning mb-3"></div>
-              <div class="border-top pt-3 text-start">
-                <p class="small mb-1 text-muted">帳號代碼：<span id="m-id" class="text-dark fw-bold">--</span></p>
-                <p class="small mb-1 text-muted">聯絡電話：<span id="m-phone" class="text-dark">--</span></p>
-                <p class="small mb-1 text-muted">緊急家長：<span id="m-pname" class="text-dark">--</span> (<span id="m-prel" class="text-dark">--</span>)</p>
-                <p class="small mb-0 text-muted">家長電話：<span id="m-pphone" class="text-dark">--</span></p>
+              <p id="m-class" class="badge bg-light text-secondary fs-7 px-3 py-2 mb-3">---</p>
+              <div id="p-stars" class="text-warning mb-4"></div>
+              <div class="border-top pt-4 text-start">
+                <p class="small mb-2 text-muted d-flex justify-content-between"><span>帳號代碼</span> <span id="m-id" class="text-dark fw-bold">--</span></p>
+                <p class="small mb-2 text-muted d-flex justify-content-between"><span>聯絡電話</span> <span id="m-phone" class="text-dark">--</span></p>
+                <p class="small mb-2 text-muted d-flex justify-content-between"><span>緊急家長</span> <span><span id="m-pname" class="text-dark fw-bold">--</span> (<span id="m-prel" class="text-dark">--</span>)</span></p>
+                <p class="small mb-0 text-muted d-flex justify-content-between"><span>家長電話</span> <span id="m-pphone" class="text-dark">--</span></p>
               </div>
             </div>
           </div>
-          <div class="col-md-8">
+          <div class="col-12 col-lg-8">
+            <!-- 指標統計方塊群 -->
             <div class="row g-3 text-center mb-4">
-              <div class="col-12 col-md-4"><div class="p-3 bg-white rounded-3 shadow-sm border-start border-4 border-primary"><small class="text-muted d-block mb-1">研習時數</small><h3 id="stat-learn" class="fw-bold text-primary mb-0">0 小時</h3></div></div>
-              <div class="col-12 col-md-4"><div class="p-3 bg-white rounded-3 shadow-sm border-start border-4 border-success"><small class="text-muted d-block mb-1">值日次數</small><h3 id="stat-activity" class="fw-bold text-success mb-0">0 次</h3></div></div>
-              <div class="col-12 col-md-4"><div class="p-3 bg-white rounded-3 shadow-sm border-start border-4 border-warning"><small class="text-muted d-block mb-1">參賽次數</small><h3 id="stat-contest" class="fw-bold text-warning mb-0">0 次</h3></div></div>
-              <div class="col-12 col-md-4"><div class="p-3 bg-white rounded-3 shadow-sm border-start border-4 border-info"><small class="text-muted d-block mb-1">專業技術</small><h3 id="stat-skills" class="fw-bold text-info mb-0">0 項</h3></div></div>
-              <div class="col-12 col-md-4"><div class="p-3 rounded-3 shadow-sm border-start border-4 border-secondary" style="background-color: #fff0f2;"><small class="text-muted d-block mb-1">遲到次數</small><h3 id="stat-late" class="fw-bold text-secondary mb-0">0 次</h3></div></div>
-              <div class="col-12 col-md-4"><div class="p-3 rounded-3 shadow-sm border-start border-4 border-danger" style="background-color: #fff0f2;"><small class="text-muted d-block mb-1">缺席次數</small><h3 id="stat-absent" class="fw-bold text-danger mb-0">0 次</h3></div></div>
+              <div class="col-6 col-md-4"><div class="stat-box border-start border-4 border-primary"><small class="text-muted d-block mb-1">研習時數</small><h3 id="stat-learn" class="fw-bold text-primary mb-0">0 h</h3></div></div>
+              <div class="col-6 col-md-4"><div class="stat-box border-start border-4 border-success"><small class="text-muted d-block mb-1">值日次數</small><h3 id="stat-activity" class="fw-bold text-success mb-0">0 次</h3></div></div>
+              <div class="col-6 col-md-4"><div class="stat-box border-start border-4 border-warning"><small class="text-muted d-block mb-1">參賽次數</small><h3 id="stat-contest" class="fw-bold text-warning mb-0">0 次</h3></div></div>
+              <div class="col-6 col-md-4"><div class="stat-box border-start border-4 border-info"><small class="text-muted d-block mb-1">專業技術</small><h3 id="stat-skills" class="fw-bold text-info mb-0">0 項</h3></div></div>
+              <div class="col-6 col-md-4"><div class="stat-box border-start border-4 border-secondary" style="background-color: #fff0f2;"><small class="text-muted d-block mb-1">遲到次數</small><h3 id="stat-late" class="fw-bold text-secondary mb-0">0 次</h3></div></div>
+              <div class="col-6 col-md-4"><div class="stat-box border-start border-4 border-danger" style="background-color: #fff0f2;"><small class="text-muted d-block mb-1">缺席次數</small><h3 id="stat-absent" class="fw-bold text-danger mb-0">0 次</h3></div></div>
             </div>
             
-            <div class="card border-0 shadow-sm p-4 rounded-3">
-              <h5 class="fw-bold text-dark mb-3"><i class="fa-solid fa-timeline me-2 text-primary"></i>個人成長里程碑時間軸</h5>
+            <div class="card-modern p-4">
+              <h5 class="fw-bold text-dark mb-4 d-flex align-items-center"><i class="fa-solid fa-timeline me-2 text-primary"></i>個人成長里程碑時間軸</h5>
               <ul id="p-timeline" class="modal-timeline-container ps-2 text-start"></ul>
             </div>
           </div>
@@ -314,21 +472,23 @@
 
     <!-- 區塊四：活動值日大廳 -->
     <div id="duty-table-view" class="view-section">
-      <div class="card border-0 shadow-sm p-4 rounded-3">
-        <div class="d-flex justify-content-between align-items-center mb-3">
+      <div class="card-modern p-4">
+        <div class="d-flex flex-column flex-md-row justify-content-between align-items-start align-items-md-center gap-3 mb-4">
           <h5 class="fw-bold text-dark mb-0"><i class="fa-solid fa-list-check me-2 text-success"></i>本學期最新派發活動排班表</h5>
           <button class="btn btn-sm btn-outline-primary fw-bold" onclick="refreshUserProfileAndDuty()"><i class="fa-solid fa-rotate me-1"></i>手動同步最新進度</button>
         </div>
+        
+        <!-- 桌機版排版 -->
         <div class="table-responsive">
-          <table class="table table-hover align-middle text-center border">
-            <thead class="table-light">
+          <table class="table table-modern align-middle text-center">
+            <thead>
               <tr>
                 <th style="width:15%">派發日期/時間</th>
                 <th style="width:25%" class="text-start">活動名稱</th>
                 <th style="width:12%">活動負責人</th>
                 <th style="width:20%" class="text-start">現場拍攝值日生 (簽到狀態)</th>
                 <th style="width:18%">後期剪輯製片生</th>
-                <th style="width:10%">實況</th>
+                <th style="width:10%">功能</th>
               </tr>
             </thead>
             <tbody id="duty-tbody">
@@ -336,49 +496,56 @@
             </tbody>
           </table>
         </div>
+
+        <!-- 行動端卡片式清單 (大螢幕會自動隱藏，手機版顯示) -->
+        <div id="duty-mobile-list" class="mobile-list-card">
+          <!-- 動態渲染手機排班卡片 -->
+        </div>
       </div>
     </div>
 
     <!-- 區塊五：器材借用大廳 -->
     <div id="borrow-view" class="view-section">
       <div class="row g-4">
-        <div class="col-md-4">
-          <div class="card border-0 shadow p-4 rounded-4 bg-white">
-            <div class="text-center mb-3">
-              <div class="bg-success text-white d-inline-block p-3 rounded-circle mb-2"><i class="fa-solid fa-toolbox fa-xl"></i></div>
-              <h5 class="fw-bold">填寫器材出借登記表</h5>
-              <p class="text-muted small">無論內部成員或校外訪客皆須在此實名登記</p>
-            </div>
-            <button class="btn btn-success w-100 py-2 fw-bold shadow-sm" onclick="openBorrowModal()"><i class="fa-solid fa-pen-to-square me-2"></i>開啟出借登記表單</button>
+        <div class="col-12 col-md-4">
+          <div class="card-modern p-4 text-center bg-white">
+            <div class="bg-light text-success d-inline-block p-3 rounded-circle mb-3"><i class="fa-solid fa-toolbox fa-2xl"></i></div>
+            <h5 class="fw-bold">器材快速出借登記</h5>
+            <p class="text-muted small mb-4">無論內部電視台成員或校外訪客，皆須在此實名備案登記。</p>
+            <button class="btn btn-success w-100 py-3 fw-bold shadow-sm" onclick="openBorrowModal()" style="background-color: var(--success-color); border:none;"><i class="fa-solid fa-pen-to-square me-2"></i>開啟出借登記表單</button>
           </div>
         </div>
         
-        <div class="col-md-8" id="adminBorrowSection" style="display:none;">
-          <div class="card border-0 shadow-sm p-4 rounded-4 bg-white">
-            <div class="d-flex justify-content-between align-items-center mb-3">
-              <h5 class="fw-bold text-dark mb-0"><i class="fa-solid fa-clock-history me-2 text-dark"></i>校園器材動態出借管理紀錄總覽</h5>
-              <button class="btn btn-xs btn-primary px-2 py-1" onclick="loadBorrowRecords()"><i class="fa-solid fa-arrows-rotate me-1"></i>重新整理</button>
+        <div class="col-12 col-md-8" id="adminBorrowSection" style="display:none;">
+          <div class="card-modern p-4">
+            <div class="d-flex justify-content-between align-items-center mb-4">
+              <h5 class="fw-bold text-dark mb-0"><i class="fa-solid fa-clock-history me-2 text-dark"></i>借用紀錄總覽</h5>
+              <button class="btn btn-xs btn-outline-secondary" onclick="loadBorrowRecords()"><i class="fa-solid fa-arrows-rotate me-1"></i>重新整理</button>
             </div>
-            <div class="table-responsive-compact">
-              <table class="table table-striped table-hover table-compact align-middle border text-center">
+            
+            <!-- 桌機版表格 -->
+            <div class="table-responsive">
+              <table class="table table-modern align-middle text-center">
                 <thead>
                   <tr>
-                    <th class="cell-time">登記時間</th>
+                    <th>登記時間</th>
                     <th>身份</th>
                     <th>借用人</th>
-                    <th>單位/班級</th>
+                    <th>單位</th>
                     <th>聯絡電話</th>
-                    <th class="cell-wrap-text">出借器材項目 (多件)</th>
-                    <th>借用日期</th>
-                    <th>開始時間</th>
-                    <th>借用時長</th>
+                    <th>器材</th>
+                    <th>日期</th>
+                    <th>時長</th>
                   </tr>
                 </thead>
                 <tbody id="borrowRecordsBody">
-                  <tr><td colspan="9" class="text-center text-muted">正在載入試算表大數據庫...</td></tr>
+                  <tr><td colspan="8" class="text-center text-muted">正在載入試算表大數據庫...</td></tr>
                 </tbody>
               </table>
             </div>
+
+            <!-- 行動端卡片式清單 -->
+            <div id="borrow-mobile-list" class="mobile-list-card"></div>
           </div>
         </div>
       </div>
@@ -386,30 +553,30 @@
 
     <!-- 區塊六：高階管理員主控台 -->
     <div id="admin-panel-view" class="view-section">
-      <div id="admin-panel-alert" class="alert alert-danger shadow-sm"><i class="fa-solid fa-shield-halved me-2"></i>本區塊具高階安全權限。請先登入管理員帳號。</div>
+      <div id="admin-panel-alert" class="alert alert-danger shadow-sm rounded-3"><i class="fa-solid fa-shield-halved me-2"></i>本區塊具高階安全權限。請先登入管理員帳號。</div>
       <div id="admin-panel-content" style="display:none;">
-        <div class="card border-0 shadow-sm p-4 rounded-3 bg-white mb-4">
-          <div class="d-flex justify-content-between align-items-center mb-3">
+        <div class="card-modern p-4 mb-4">
+          <div class="d-flex flex-column flex-md-row justify-content-between align-items-start align-items-md-center gap-3">
             <div>
-              <h5 class="fw-bold text-dark mb-1"><i class="fa-solid fa-calendar-plus me-2 text-success"></i>發布全新活動值日排班排程</h5>
-              <p class="text-muted small mb-0">發布後，系統將自動派發並連動更新。</p>
+              <h5 class="fw-bold text-dark mb-1"><i class="fa-solid fa-calendar-plus me-2 text-success"></i>發布全新活動值日排班</h5>
+              <p class="text-muted small mb-0">發布後，系統將實時將排班資訊推播至每位值日生大廳。</p>
             </div>
-            <div>
-              <button class="btn btn-success px-4 py-2 fw-bold shadow-sm" onclick="openDutyModal()"><i class="fa-solid fa-circle-plus me-2"></i>開啟排班發布面版</button>
-            </div>
+            <button class="btn btn-success py-2 px-4 fw-bold shadow-sm" onclick="openDutyModal()" style="background-color: var(--success-color); border:none;"><i class="fa-solid fa-circle-plus me-2"></i>開啟排班面版</button>
           </div>
         </div>
 
-        <div class="card border-0 shadow-sm p-4 rounded-3 bg-white">
-          <div class="d-flex justify-content-between align-items-center mb-3 flex-wrap g-2">
-            <h5 class="fw-bold text-dark mb-0"><i class="fa-solid fa-users me-2 text-secondary"></i>電視台全體成員資格與審批清冊 <small class="text-muted fs-7">（點擊成員可開啟核實寫入面板）</small></h5>
-            <input type="text" id="search-input" class="form-control form-control-sm w-25" placeholder="🔍 快速搜尋..." onkeyup="filterTable()">
+        <div class="card-modern p-4">
+          <div class="d-flex flex-column flex-md-row justify-content-between align-items-start align-items-md-center gap-3 mb-4">
+            <h5 class="fw-bold text-dark mb-0"><i class="fa-solid fa-users me-2 text-secondary"></i>全體成員名冊</h5>
+            <div class="input-group" style="max-width: 300px;"><span class="input-group-text bg-light border-end-0"><i class="fa-solid fa-magnifying-glass text-muted"></i></span><input type="text" id="search-input" class="form-control" placeholder="快速搜尋姓名或班級..." onkeyup="filterTable()"></div>
           </div>
+          
+          <!-- 桌機版表格 -->
           <div class="table-responsive">
-            <table class="table table-hover align-middle text-center border">
-              <thead class="table-light">
+            <table class="table table-modern align-middle text-center">
+              <thead>
                 <tr>
-                  <th>大頭照</th><th>學號</th><th>姓名</th><th>班級座號</th><th>個人電話</th><th>家長聯絡資料</th><th>審查權限狀態</th>
+                  <th>大頭照</th><th>學號</th><th>姓名</th><th>班級座號</th><th>個人電話</th><th>家長聯絡</th><th>審查權限狀態</th>
                 </tr>
               </thead>
               <tbody id="admin-tbody">
@@ -417,183 +584,113 @@
               </tbody>
             </table>
           </div>
+
+          <!-- 行動端卡片式清單 -->
+          <div id="admin-mobile-list" class="mobile-list-card"></div>
         </div>
       </div>
     </div>
   </div>
 
-  <!-- 器材借用對話框 -->
+  <!-- 器材借用對話框 (優化彈窗) -->
   <div class="modal fade" id="borrowModal" data-bs-backdrop="static" tabindex="-1" aria-hidden="true">
     <div class="modal-dialog modal-dialog-centered modal-md">
-      <div class="modal-content border-0 shadow">
-        <div class="modal-header bg-dark text-white">
-          <h5 class="modal-title fw-bold"><i class="fa-solid fa-clipboard-list me-2"></i>電視台設備器材出借綜合登記表</h5>
+      <div class="modal-content border-0 shadow-lg rounded-4">
+        <div class="modal-header bg-dark text-white py-3 border-0">
+          <h5 class="modal-title fw-bold"><i class="fa-solid fa-clipboard-list me-2 text-info"></i>設備器材出借登記</h5>
           <button type="button" class="btn-close btn-close-white" data-bs-dismiss="modal" aria-label="Close"></button>
         </div>
         <form id="borrow-form" onsubmit="handleBorrowSubmit(event)">
-          <div class="modal-body text-start">
-            <div id="borrow-member-block" class="alert alert-info py-2 mb-3" style="display:none;">
-              <small class="fw-bold d-block">系統已綁定登入者身分：</small>
+          <div class="modal-body p-4">
+            <div id="borrow-member-block" class="alert alert-info py-2 mb-3 rounded-3" style="display:none;">
+              <small class="fw-bold d-block text-secondary">登入者身分綁定：</small>
               <span id="borrow-member-info" class="fs-6 fw-bold">--</span>
             </div>
             <div id="borrow-guest-block" class="row g-2 mb-3" style="display:none;">
-              <div class="col-md-4"><label class="form-label small fw-bold">借用人姓名</label><input type="text" id="borrow-name" class="form-control form-control-sm"></div>
-              <div class="col-md-4"><label class="form-label small fw-bold">班級/外部單位</label><input type="text" id="borrow-class" class="form-control form-control-sm" placeholder="如: 設備組"></div>
-              <div class="col-md-4"><label class="form-label small fw-bold">手機聯絡電話</label><input type="tel" id="borrow-phone" class="form-control form-control-sm"></div>
+              <div class="col-12 col-md-4"><label class="form-label small fw-bold">姓名</label><input type="text" id="borrow-name" class="form-control"></div>
+              <div class="col-12 col-md-4"><label class="form-label small fw-bold">單位</label><input type="text" id="borrow-class" class="form-control" placeholder="如: 設備組"></div>
+              <div class="col-12 col-md-4"><label class="form-label small fw-bold">電話</label><input type="tel" id="borrow-phone" class="form-control"></div>
             </div>
             
-            <div class="card p-3 bg-light mb-3 border-0 rounded-3">
-              <label class="form-label small fw-bold text-dark mb-2"><i class="fa-solid fa-boxes-stacked me-1 text-primary"></i>欲出借設備器材項目 (最多5件)</label>
-              
-              <div class="mb-2">
-                <div class="input-group input-group-sm">
-                  <span class="input-group-text bg-primary text-white fw-bold" style="width:75px;">第 1 件 *</span>
-                  <select id="borrow-eq-1" class="form-select form-select-sm select-eq-item" required>
-                    <option value="" disabled selected>-- 必填 --</option>
-                    <option value="Sony相機">Sony相機</option>
-                    <option value="腳架">腳架</option>
-                    <option value="DJI 手持穩定器">DJI 手持穩定器</option>
-                    <option value="DJI 無線麥克風">DJI 無線麥克風</option>
-                    <option value="手持LED燈">手持LED燈</option>
-                    <option value="IPAD">IPAD</option>
-                    <option value="大DV">大DV</option>
-                    <option value="小DV">小DV</option>
-                  </select>
-                </div>
-              </div>
-              <div class="mb-2">
-                <div class="input-group input-group-sm">
-                  <span class="input-group-text bg-secondary text-white fw-bold" style="width:75px;">第 2 件</span>
-                  <select id="borrow-eq-2" class="form-select form-select-sm select-eq-item">
-                    <option value="">-- 選填 --</option>
-                    <option value="Sony相機">Sony相機</option>
-                    <option value="腳架">腳架</option>
-                    <option value="DJI 手持穩定器">DJI 手持穩定器</option>
-                    <option value="DJI 無線麥克風">DJI 無線麥克風</option>
-                    <option value="手持LED燈">手持LED燈</option>
-                    <option value="IPAD">IPAD</option>
-                    <option value="大DV">大DV</option>
-                    <option value="小DV">小DV</option>
-                  </select>
-                </div>
-              </div>
-              <div class="mb-2">
-                <div class="input-group input-group-sm">
-                  <span class="input-group-text bg-secondary text-white fw-bold" style="width:75px;">第 3 件</span>
-                  <select id="borrow-eq-3" class="form-select form-select-sm select-eq-item">
-                    <option value="">-- 選填 --</option>
-                    <option value="Sony相機">Sony相機</option>
-                    <option value="腳架">腳架</option>
-                    <option value="DJI 手持穩定器">DJI 手持穩定器</option>
-                    <option value="DJI 無線麥克風">DJI 無線麥克風</option>
-                    <option value="手持LED燈">手持LED燈</option>
-                    <option value="IPAD">IPAD</option>
-                    <option value="大DV">大DV</option>
-                    <option value="小DV">小DV</option>
-                  </select>
-                </div>
-              </div>
-              <div class="mb-2">
-                <div class="input-group input-group-sm">
-                  <span class="input-group-text bg-secondary text-white fw-bold" style="width:75px;">第 4 件</span>
-                  <select id="borrow-eq-4" class="form-select form-select-sm select-eq-item">
-                    <option value="">-- 選填 --</option>
-                    <option value="Sony相機">Sony相機</option>
-                    <option value="腳架">腳架</option>
-                    <option value="DJI 手持穩定器">DJI 手持穩定器</option>
-                    <option value="DJI 無線麥克風">DJI 無線麥克風</option>
-                    <option value="手持LED燈">手持LED燈</option>
-                    <option value="IPAD">IPAD</option>
-                    <option value="大DV">大DV</option>
-                    <option value="小DV">小DV</option>
-                  </select>
-                </div>
-              </div>
-              <div>
-                <div class="input-group input-group-sm">
-                  <span class="input-group-text bg-secondary text-white fw-bold" style="width:75px;">第 5 件</span>
-                  <select id="borrow-eq-5" class="form-select form-select-sm select-eq-item">
-                    <option value="">-- 選填 --</option>
-                    <option value="Sony相機">Sony相機</option>
-                    <option value="腳架">腳架</option>
-                    <option value="DJI 手持穩定器">DJI 手持穩定器</option>
-                    <option value="DJI 無線麥克風">DJI 無線麥克風</option>
-                    <option value="手持LED燈">手持LED燈</option>
-                    <option value="IPAD">IPAD</option>
-                    <option value="大DV">大DV</option>
-                    <option value="小DV">小DV</option>
-                  </select>
-                </div>
+            <div class="card p-3 bg-light border-0 rounded-3 mb-3">
+              <label class="form-label small fw-bold text-dark mb-2"><i class="fa-solid fa-boxes-stacked me-1 text-primary"></i>欲出借設備 (最多5件)</label>
+              <div class="row g-2">
+                <div class="col-12"><select id="borrow-eq-1" class="form-select mb-2" required><option value="" disabled selected>第 1 件 (必填)</option><option value="Sony相機">Sony相機</option><option value="腳架">腳架</option><option value="DJI 手持穩定器">DJI 手持穩定器</option><option value="DJI 無線麥克風">DJI 無線麥克風</option><option value="手持LED燈">手持LED燈</option><option value="IPAD">IPAD</option><option value="大DV">大DV</option><option value="小DV">小DV</option></select></div>
+                <div class="col-12"><select id="borrow-eq-2" class="form-select mb-2"><option value="">第 2 件 (選填)</option><option value="Sony相機">Sony相機</option><option value="腳架">腳架</option><option value="DJI 手持穩定器">DJI 手持穩定器</option><option value="DJI 無線麥克風">DJI 無線麥克風</option><option value="手持LED燈">手持LED燈</option><option value="IPAD">IPAD</option><option value="大DV">大DV</option><option value="小DV">小DV</option></select></div>
+                <div class="col-12"><select id="borrow-eq-3" class="form-select mb-2"><option value="">第 3 件 (選填)</option><option value="Sony相機">Sony相機</option><option value="腳架">腳架</option><option value="DJI 手持穩定器">DJI 手持穩定器</option><option value="DJI 無線麥克風">DJI 無線麥克風</option><option value="手持LED燈">手持LED燈</option><option value="IPAD">IPAD</option><option value="大DV">大DV</option><option value="小DV">小DV</option></select></div>
+                <div class="col-12"><select id="borrow-eq-4" class="form-select mb-2"><option value="">第 4 件 (選填)</option><option value="Sony相機">Sony相機</option><option value="腳架">腳架</option><option value="DJI 手持穩定器">DJI 手持穩定器</option><option value="DJI 無線麥克風">DJI 無線麥克風</option><option value="手持LED燈">手持LED燈</option><option value="IPAD">IPAD</option><option value="大DV">大DV</option><option value="小DV">小DV</option></select></div>
+                <div class="col-12"><select id="borrow-eq-5" class="form-select"><option value="">第 5 件 (選填)</option><option value="Sony相機">Sony相機</option><option value="腳架">腳架</option><option value="DJI 手持穩定器">DJI 手持穩定器</option><option value="DJI 無線麥克風">DJI 無線麥克風</option><option value="手持LED燈">手持LED燈</option><option value="IPAD">IPAD</option><option value="大DV">大DV</option><option value="小DV">小DV</option></select></div>
               </div>
             </div>
 
             <div class="row g-2">
-              <div class="col-md-4"><label class="form-label small fw-bold">預計借用日期</label><input type="date" id="borrow-date" class="form-control form-control-sm" required></div>
-              <div class="col-md-4"><label class="form-label small fw-bold">預計取件時間</label><input type="time" id="borrow-time" class="form-control form-control-sm" required></div>
-              <div class="col-md-4">
-                <label class="form-label small fw-bold">借用預估時長</label>
-                <select id="borrow-duration" class="form-select form-select-sm" required>
+              <div class="col-12 col-md-4"><label class="form-label small fw-bold">日期</label><input type="date" id="borrow-date" class="form-control" required></div>
+              <div class="col-12 col-md-4"><label class="form-label small fw-bold">時間</label><input type="time" id="borrow-time" class="form-control" required></div>
+              <div class="col-12 col-md-4">
+                <label class="form-label small fw-bold">借用時長</label>
+                <select id="borrow-duration" class="form-select" required>
                   <option value="1">1 小時</option><option value="2" selected>2 小時</option><option value="4">4 小時</option><option value="8">8 小時</option><option value="24">24 小時</option><option value="48">48 小時</option>
                 </select>
               </div>
             </div>
           </div>
-          <div class="modal-footer bg-light">
-            <button type="button" class="btn btn-secondary btn-sm" data-bs-dismiss="modal">取消關閉</button>
-            <button type="submit" class="btn btn-success btn-sm fw-bold">向系統提交借用單</button>
+          <div class="modal-footer bg-light border-0">
+            <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">取消</button>
+            <button type="submit" class="btn btn-success fw-bold">向系統提交借用單</button>
           </div>
         </form>
       </div>
     </div>
   </div>
 
-  <!-- 管理員排班對話框 -->
+  <!-- 其他原功能對話框（保留，僅優化圓角、按鈕大小、以及全自適應） -->
+  <!-- [管理員排班對話框] -->
   <div class="modal fade" id="dutyModal" data-bs-backdrop="static" tabindex="-1" aria-hidden="true">
     <div class="modal-dialog modal-dialog-centered">
-      <div class="modal-content border-0 shadow">
-        <div class="modal-header bg-success text-white">
-          <h5 class="modal-title fw-bold"><i class="fa-solid fa-calendar-plus me-2"></i>發布全新活動排班任務</h5>
+      <div class="modal-content border-0 shadow-lg rounded-4">
+        <div class="modal-header bg-success text-white py-3">
+          <h5 class="modal-title fw-bold"><i class="fa-solid fa-calendar-plus me-2"></i>發布全新活動排班</h5>
           <button type="button" class="btn-close btn-close-white" data-bs-dismiss="modal" aria-label="Close"></button>
         </div>
         <form id="duty-form" onsubmit="handleDutySubmit(event)">
-          <div class="modal-body text-start">
-            <div class="mb-2"><label class="form-label small fw-bold">新活動名稱項目</label><input type="text" id="duty-activity-name" class="form-control form-control-sm" required placeholder="如: 畢業典禮錄影"></div>
-            <div class="row g-2 mb-2">
-              <div class="col-6"><label class="form-label small fw-bold">活動執行日期</label><input type="date" id="duty-date" class="form-control form-control-sm" required></div>
-              <div class="col-6"><label class="form-label small fw-bold">執行時間區段</label><input type="text" id="duty-time" class="form-control form-control-sm" placeholder="如: 08:30~12:00" required></div>
+          <div class="modal-body p-4">
+            <div class="mb-3"><label class="form-label small fw-bold">新活動名稱</label><input type="text" id="duty-activity-name" class="form-control" required placeholder="例如：115學年度畢業典禮紀錄"></div>
+            <div class="row g-2 mb-3">
+              <div class="col-6"><label class="form-label small fw-bold">執行日期</label><input type="date" id="duty-date" class="form-control" required></div>
+              <div class="col-6"><label class="form-label small fw-bold">執行時間區段</label><input type="text" id="duty-time" class="form-control" placeholder="例 08:30~12:00" required></div>
             </div>
-            <div class="mb-3"><label class="form-label small fw-bold">活動現場總負責人</label><input type="text" id="duty-leader" class="form-control form-control-sm" placeholder="指導老師姓名" required></div>
+            <div class="mb-3"><label class="form-label small fw-bold">活動總負責人（通常為老師）</label><input type="text" id="duty-leader" class="form-control" placeholder="請輸入指導老師名字" required></div>
             
             <div class="card p-3 bg-light border-0 rounded-3">
-              <label class="form-label small fw-bold text-dark mb-2">👥 調度並派發內部成員任務</label>
-              <div class="mb-2"><label class="form-label text-muted" style="font-size:0.75rem;">🎥 現場主機拍攝位 1 (必填)</label><select id="duty-cam1" class="form-select form-select-sm" required></select></div>
-              <div class="mb-2"><label class="form-label text-muted" style="font-size:0.75rem;">🎥 現場副機拍攝位 2 (選填)</label><select id="duty-cam2" class="form-select form-select-sm"></select></div>
-              <div class="mb-2"><label class="form-label text-muted" style="font-size:0.75rem;">🎥 現場游擊拍攝位 3 (選填)</label><select id="duty-cam3" class="form-select form-select-sm"></select></div>
-              <div><label class="form-label text-muted" style="font-size:0.75rem;">💻 後期主剪輯製片生 (必填)</label><select id="duty-editor" class="form-select form-select-sm" required></select></div>
+              <label class="form-label small fw-bold text-dark mb-2">調度電視台成員任務</label>
+              <div class="mb-2"><label class="form-label text-muted small">🎥 現場主機拍攝位 1 (必填)</label><select id="duty-cam1" class="form-select" required></select></div>
+              <div class="mb-2"><label class="form-label text-muted small">🎥 現場副機拍攝位 2 (選填)</label><select id="duty-cam2" class="form-select"></select></div>
+              <div class="mb-2"><label class="form-label text-muted small">🎥 現場游擊拍攝位 3 (選填)</label><select id="duty-cam3" class="form-select"></select></div>
+              <div><label class="form-label text-muted small">💻 後期主剪輯製片生 (必填)</label><select id="duty-editor" class="form-select" required></select></div>
             </div>
           </div>
-          <div class="modal-footer bg-light">
-            <button type="button" class="btn btn-secondary btn-sm" data-bs-dismiss="modal">放棄取消</button>
-            <button type="submit" class="btn btn-success btn-sm fw-bold">確認發布並登錄排班</button>
+          <div class="modal-footer bg-light border-0">
+            <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">取消</button>
+            <button type="submit" class="btn btn-success fw-bold">確認排程並發布</button>
           </div>
         </form>
       </div>
     </div>
   </div>
 
-  <!-- 現場簽到定位對話框 -->
+  <!-- [現場簽到定位對話框] -->
   <div class="modal fade" id="checkInModal" data-bs-backdrop="static" tabindex="-1" aria-hidden="true">
     <div class="modal-dialog modal-dialog-centered modal-sm">
-      <div class="modal-content border-0 shadow">
-        <div class="modal-header bg-primary text-white py-2">
-          <h6 class="modal-title fw-bold"><i class="fa-solid fa-location-dot me-2"></i>現場拍攝值日簽到定位</h6>
+      <div class="modal-content border-0 shadow-lg rounded-4">
+        <div class="modal-header bg-primary text-white py-2 border-0">
+          <h6 class="modal-title fw-bold"><i class="fa-solid fa-location-dot me-2"></i>現場簽到定位回報</h6>
           <button type="button" class="btn-close btn-close-white" data-bs-dismiss="modal" aria-label="Close"></button>
         </div>
         <form id="checkin-form" onsubmit="handleCheckInSubmit(event)">
           <input type="hidden" id="ci-activity-name"><input type="hidden" id="ci-date">
-          <div class="modal-body py-3 text-start">
-            <label class="form-label small fw-bold mb-1">回報當前值日工作崗位定位</label>
-            <select id="ci-location" class="form-select form-select-sm" required>
+          <div class="modal-body py-4 text-start">
+            <label class="form-label small fw-bold mb-2">回報目前值班崗位：</label>
+            <select id="ci-location" class="form-select" required>
               <option value="🎥 1號主機位" selected>🎥 1號主機位</option>
               <option value="🎥 2號副機位">🎥 2號副機位</option>
               <option value="🎥 3號游擊移動位">🎥 3號游擊移動位</option>
@@ -601,121 +698,121 @@
               <option value="🎤 現場收音工程位">🎤 現場收音工程位</option>
             </select>
           </div>
-          <div class="modal-footer py-1 bg-light">
-            <button type="button" class="btn btn-secondary btn-xs" data-bs-dismiss="modal">關閉</button>
-            <button type="submit" class="btn btn-primary btn-sm fw-bold">確認簽到</button>
+          <div class="modal-footer bg-light border-0">
+            <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">關閉</button>
+            <button type="submit" class="btn btn-primary fw-bold">確認簽到</button>
           </div>
         </form>
       </div>
     </div>
   </div>
 
-  <!-- 活動排班完整狀態追蹤對話框 -->
+  <!-- [活動簽到進度追蹤對話框] -->
   <div class="modal fade" id="viewStatusModal" tabindex="-1" aria-hidden="true">
     <div class="modal-dialog modal-dialog-centered modal-lg">
-      <div class="modal-content border-0 shadow">
-        <div class="modal-header bg-info text-dark">
-          <h5 class="modal-title fw-bold" id="vs-activity-title">活動簽到進度實時追蹤</h5>
+      <div class="modal-content border-0 shadow-lg rounded-4">
+        <div class="modal-header bg-info text-dark border-0">
+          <h5 class="modal-title fw-bold" id="vs-activity-title">活動簽到進度追蹤</h5>
           <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
         </div>
-        <div class="modal-body">
-          <table class="table table-sm table-bordered align-middle text-center small mb-0">
-            <thead class="table-light">
-              <tr><th>指派崗位</th><th>配置成員</th><th>任務回報狀態</th><th>確切時間</th><th>工作細節/定位</th></tr>
-            </thead>
-            <tbody id="vs-tbody"></tbody>
-          </table>
+        <div class="modal-body p-0">
+          <div class="table-responsive">
+            <table class="table align-middle text-center mb-0">
+              <thead class="table-light">
+                <tr><th>任務崗位</th><th>負責成員</th><th>回報狀態</th><th>打卡時間</th><th>備註/定位</th></tr>
+              </thead>
+              <tbody id="vs-tbody"></tbody>
+            </table>
+          </div>
         </div>
       </div>
     </div>
   </div>
 
-  <!-- 修改里程碑與時數對話框 -->
+  <!-- [進階修訂成員成長學習檔案對話框] -->
   <div class="modal fade" id="portfolioModal" data-bs-backdrop="static" tabindex="-1" aria-hidden="true">
     <div class="modal-dialog modal-dialog-centered modal-lg">
-      <div class="modal-content border-0 shadow">
-        <div class="modal-header bg-secondary text-white">
-          <h5 class="modal-title fw-bold"><i class="fa-solid fa-user-pen me-2"></i>進階修訂成員成長學習檔案</h5>
+      <div class="modal-content border-0 shadow-lg rounded-4">
+        <div class="modal-header bg-secondary text-white border-0">
+          <h5 class="modal-title fw-bold"><i class="fa-solid fa-user-pen me-2"></i>核實修訂學生成長檔案</h5>
           <button type="button" class="btn-close btn-close-white" onclick="closePortfolioModal()"></button>
         </div>
-        <div class="modal-body text-start">
-          <div class="d-flex align-items-center mb-3 p-2 border-bottom bg-light rounded">
-            <img id="edit-member-photo" src="" class="table-img me-2 border" style="width:50px; height:50px; object-fit:cover; border-radius: 50%;">
+        <div class="modal-body p-4">
+          <div class="d-flex align-items-center mb-4 p-3 bg-light rounded-3">
+            <img id="edit-member-photo" src="" class="table-img me-3">
             <div>
               <h6 id="edit-member-name" class="fw-bold text-dark mb-0">--</h6>
-              <small class="text-muted">學生活動與資歷核實寫入面板</small>
+              <small class="text-muted">學生活動資歷與時數審定</small>
             </div>
             <input type="hidden" id="edit-student-id">
           </div>
           
-          <div class="row g-2 mb-3 text-center">
-            <div class="col-4"><div class="bg-light p-2 rounded"><small class="text-muted d-block" style="font-size:0.7rem;">研習時數</small><span id="old-learn" class="fw-bold">0</span> + <input type="number" id="add-learn" class="form-control form-control-sm text-center d-inline-block mx-auto mt-1" style="width:60px;" value="0" oninput="calcPortfolioTotals()"> = <span id="total-learn" class="text-primary fw-bold">0</span></div></div>
-            <div class="col-4"><div class="bg-light p-2 rounded"><small class="text-muted d-block" style="font-size:0.7rem;">值日次數</small><span id="old-activity" class="fw-bold">0</span> + <input type="number" id="add-activity" class="form-control form-control-sm text-center d-inline-block mx-auto mt-1" style="width:60px;" value="0" oninput="calcPortfolioTotals()"> = <span id="total-activity" class="text-success fw-bold">0</span></div></div>
-            <div class="col-4"><div class="bg-light p-2 rounded"><small class="text-muted d-block" style="font-size:0.7rem;">參賽次數</small><span id="old-contest" class="fw-bold">0</span> + <input type="number" id="add-contest" class="form-control form-control-sm text-center d-inline-block mx-auto mt-1" style="width:60px;" value="0" oninput="calcPortfolioTotals()"> = <span id="total-contest" class="text-warning fw-bold">0</span></div></div>
-            <div class="col-4"><div class="bg-light p-2 rounded"><small class="text-muted d-block" style="font-size:0.7rem;">專業技術</small><span id="old-skills" class="fw-bold">0</span> + <input type="number" id="add-skills" class="form-control form-control-sm text-center d-inline-block mx-auto mt-1" style="width:60px;" value="0" oninput="calcPortfolioTotals()"> = <span id="total-skills" class="text-info fw-bold">0</span></div></div>
-            <div class="col-4"><div class="p-2 rounded" style="background-color: #fff0f2;"><small class="text-muted d-block" style="font-size:0.7rem;">遲到次數</small><span id="old-late" class="fw-bold">0</span> + <input type="number" id="add-late" class="form-control form-control-sm text-center d-inline-block mx-auto mt-1" style="width:60px;" value="0" oninput="calcPortfolioTotals()"> = <span id="total-late" class="text-secondary fw-bold">0</span></div></div>
-            <div class="col-4"><div class="p-2 rounded" style="background-color: #fff0f2;"><small class="text-muted d-block" style="font-size:0.7rem;">缺席次數</small><span id="old-absent" class="fw-bold">0</span> + <input type="number" id="add-absent" class="form-control form-control-sm text-center d-inline-block mx-auto mt-1" style="width:60px;" value="0" oninput="calcPortfolioTotals()"> = <span id="total-absent" class="text-danger fw-bold">0</span></div></div>
+          <div class="row g-2 mb-4 text-center">
+            <div class="col-6 col-md-4"><div class="bg-light p-2 rounded"><small class="text-muted d-block fs-8">研習時數</small><span id="old-learn" class="fw-bold">0</span> + <input type="number" id="add-learn" class="form-control form-control-sm text-center d-inline-block mx-auto mt-1" style="width:60px;" value="0" oninput="calcPortfolioTotals()"> = <span id="total-learn" class="text-primary fw-bold">0</span></div></div>
+            <div class="col-6 col-md-4"><div class="bg-light p-2 rounded"><small class="text-muted d-block fs-8">值日次數</small><span id="old-activity" class="fw-bold">0</span> + <input type="number" id="add-activity" class="form-control form-control-sm text-center d-inline-block mx-auto mt-1" style="width:60px;" value="0" oninput="calcPortfolioTotals()"> = <span id="total-activity" class="text-success fw-bold">0</span></div></div>
+            <div class="col-6 col-md-4"><div class="bg-light p-2 rounded"><small class="text-muted d-block fs-8">參賽次數</small><span id="old-contest" class="fw-bold">0</span> + <input type="number" id="add-contest" class="form-control form-control-sm text-center d-inline-block mx-auto mt-1" style="width:60px;" value="0" oninput="calcPortfolioTotals()"> = <span id="total-contest" class="text-warning fw-bold">0</span></div></div>
+            <div class="col-6 col-md-4"><div class="bg-light p-2 rounded"><small class="text-muted d-block fs-8">專業技術</small><span id="old-skills" class="fw-bold">0</span> + <input type="number" id="add-skills" class="form-control form-control-sm text-center d-inline-block mx-auto mt-1" style="width:60px;" value="0" oninput="calcPortfolioTotals()"> = <span id="total-skills" class="text-info fw-bold">0</span></div></div>
+            <div class="col-6 col-md-4"><div class="p-2 rounded" style="background-color: #fff0f2;"><small class="text-muted d-block fs-8">遲到次數</small><span id="old-late" class="fw-bold">0</span> + <input type="number" id="add-late" class="form-control form-control-sm text-center d-inline-block mx-auto mt-1" style="width:60px;" value="0" oninput="calcPortfolioTotals()"> = <span id="total-late" class="text-secondary fw-bold">0</span></div></div>
+            <div class="col-6 col-md-4"><div class="p-2 rounded" style="background-color: #fff0f2;"><small class="text-muted d-block fs-8">缺席次數</small><span id="old-absent" class="fw-bold">0</span> + <input type="number" id="add-absent" class="form-control form-control-sm text-center d-inline-block mx-auto mt-1" style="width:60px;" value="0" oninput="calcPortfolioTotals()"> = <span id="total-absent" class="text-danger fw-bold">0</span></div></div>
           </div>
 
-          <div class="mb-3">
-            <label class="form-label small fw-bold text-dark mb-1">📋 已登錄歷史里程碑審定紀錄</label>
-            <div id="old-milestones-history-container" class="border p-2 rounded bg-white" style="max-height: 120px; overflow-y: auto;"></div>
+          <div class="mb-4">
+            <label class="form-label small fw-bold text-dark mb-2">📋 歷史里程碑審定紀錄</label>
+            <div id="old-milestones-history-container" class="border p-3 rounded-3 bg-white" style="max-height: 150px; overflow-y: auto;"></div>
           </div>
           
-          <hr class="my-3">
+          <hr class="my-4">
 
           <div class="row g-3">
-            <div class="col-md-6">
-              <div class="p-2 border rounded bg-light h-100">
-                <label class="form-label small fw-bold text-primary mb-1">🏅 本次追加競賽獎項</label>
-                <input type="text" id="adm-contest-title" class="form-control form-control-sm mb-1" placeholder="獎項標題">
-                <input type="text" id="adm-contest-desc" class="form-control form-control-sm" placeholder="對應詳細內容描述...">
+            <div class="col-12 col-md-6">
+              <div class="p-3 border rounded-3 bg-light h-100">
+                <label class="form-label small fw-bold text-primary mb-1">🏅 追加競賽獎項</label>
+                <input type="text" id="adm-contest-title" class="form-control form-control-sm mb-2" placeholder="獎項標題">
+                <input type="text" id="adm-contest-desc" class="form-control form-control-sm mb-3" placeholder="詳細內容描述...">
                 
-                <label class="form-label small fw-bold text-info mt-2 mb-1">🛠️ 本次追加核心專業技術證章</label>
-                <input type="text" id="adm-skill-title" class="form-control form-control-sm mb-1" placeholder="技術名稱">
-                <input type="text" id="adm-skill-desc" class="form-control form-control-sm" placeholder="考查通過描述...">
+                <label class="form-label small fw-bold text-info mb-1">🛠️ 追加專業技術考查證章</label>
+                <input type="text" id="adm-skill-title" class="form-control form-control-sm mb-2" placeholder="技術名稱">
+                <input type="text" id="adm-skill-desc" class="form-control form-control-sm" placeholder="考驗通過備註描述...">
               </div>
             </div>
 
-            <div class="col-md-6">
-              <div class="p-2 border rounded border-danger h-100" style="background-color: #fff0f2;">
-                <label class="form-label small fw-bold text-danger mb-1"><i class="fa-solid fa-triangle-exclamation me-1"></i> 登記違規紀錄</label>
+            <div class="col-12 col-md-6">
+              <div class="p-3 border rounded-3 border-danger h-100" style="background-color: #fff0f2;">
+                <label class="form-label small fw-bold text-danger mb-2"><i class="fa-solid fa-triangle-exclamation me-1"></i> 登記違規與考勤紀錄</label>
                 <div class="mb-2">
                   <select id="adm-violation-type" class="form-select form-select-sm text-danger fw-bold">
-                    <option value="">-- 請選擇違規類型 (若無則留空) --</option>
+                    <option value="">-- 若無事由請留空 --</option>
                     <option value="遲到">🕒 遲到</option>
                     <option value="缺席">❌ 缺席</option>
                     <option value="其它違規事項">⚠️ 其它違規事項</option>
                   </select>
                 </div>
-                <textarea id="adm-violation-desc" class="form-control form-control-sm" rows="3" placeholder="請輸入詳細事由"></textarea>
+                <textarea id="adm-violation-desc" class="form-control form-control-sm" rows="3" placeholder="請輸入違規行為之詳細事由..."></textarea>
               </div>
             </div>
           </div>
 
-          <div class="mt-3">
+          <div class="mt-4">
             <div class="d-flex justify-content-between align-items-center mb-2">
-              <label class="form-label small fw-bold text-secondary mb-0">✨ 其他自訂成長里程碑事件</label>
-              <button type="button" class="btn btn-outline-primary btn-xs" onclick="addNewMilestoneRow()"><i class="fa-solid fa-plus me-1"></i>追加一行自訂事件</button>
+              <label class="form-label small fw-bold text-secondary mb-0">✨ 其他自訂成長事件</label>
+              <button type="button" class="btn btn-outline-primary btn-xs" onclick="addNewMilestoneRow()"><i class="fa-solid fa-plus me-1"></i>新增事件</button>
             </div>
             <div id="new-milestones-container" style="max-height: 120px; overflow-y: auto;"></div>
           </div>
         </div>
-        <div class="modal-footer bg-light py-2">
-          <button type="button" class="btn btn-secondary btn-sm" onclick="closePortfolioModal()">不儲存關閉</button>
-          <button type="button" id="portfolio-submit-btn" class="btn btn-primary btn-sm fw-bold" onclick="savePortfolioChanges()"><i class="fa-solid fa-cloud-arrow-up me-1"></i>確認儲存修改</button>
+        <div class="modal-footer bg-light border-0">
+          <button type="button" class="btn btn-secondary" onclick="closePortfolioModal()">取消關閉</button>
+          <button type="button" id="portfolio-submit-btn" class="btn btn-primary fw-bold" onclick="savePortfolioChanges()"><i class="fa-solid fa-cloud-arrow-up me-1"></i>儲存修訂</button>
         </div>
       </div>
     </div>
   </div>
    
   <script>
-    // 💡 確保此 URL 是您 Google Apps Script Web App 部署後取得的最新執行網址
+    // 確保此 URL 是您 Google Apps Script Web App 部署後取得的最新執行網址
     const GAS_WEB_APP_URL = "https://script.google.com/macros/s/AKfycbynEA1QcyEF6a0UMHjex87Yr-WhgDcZEnCwFXiakbxr7QAXbWSGCPLUzl09v6etG0KGbA/exec";
 
-    // ==========================================
     // 全域變數定義
-    // ==========================================
     var checkInModalObj     = null;
     var viewStatusModalObj  = null;
     var dutyModalObj        = null;
@@ -743,7 +840,7 @@
       if (mask) mask.style.display = status ? 'flex' : 'none';
     }
 
-    // 🌐 跨網域通用通訊封裝 (取代原本無法運作的 google.script.run)
+    // 跨網域通用通訊封裝 (取代原本無法運作的 google.script.run)
     async function callGAS(action, payload = {}, method = 'POST') {
       if (method === 'GET') {
         const params = new URLSearchParams({ action, ...payload }).toString();
@@ -762,9 +859,7 @@
       }
     }
 
-    // ==========================================
     // 核心功能：視圖切換 (View Switching)
-    // ==========================================
     function switchView(viewId) {
       var sections = document.querySelectorAll('.view-section');
       sections.forEach(function(s) { s.classList.remove('active'); });
@@ -782,10 +877,13 @@
       };
       if (titleMap[viewId]) document.getElementById('page-title').innerText = titleMap[viewId];
 
+      // 同時更新桌機與手機版的側邊欄選單焦點
       var links = document.querySelectorAll('.sidebar-menu a');
       links.forEach(function(l) { l.classList.remove('active'); });
-      var activeLink = document.querySelector(`.sidebar-menu a[onclick*="${viewId}"]`);
-      if (activeLink) activeLink.classList.add('active');
+      
+      // 匹配包含目前 viewId 的對應選單元素並加上 active
+      var activeLinks = document.querySelectorAll(`.sidebar-menu a[onclick*="${viewId}"]`);
+      activeLinks.forEach(function(al) { al.classList.add('active'); });
 
       if (viewId === 'duty-table-view') {
         if (loggedInUserSession && loggedInUserSession.role === 'admin') { 
@@ -800,9 +898,7 @@
       }
     }
 
-    // ==========================================
     // 身分驗證模組 (Authentication)
-    // ==========================================
     function handleLoginSubmit(e) {
       e.preventDefault();
       var idEl = document.getElementById('login-id');
@@ -834,6 +930,8 @@
 
             document.getElementById('menu-login').style.display = 'none';
             document.getElementById('menu-register').style.display = 'none';
+            if (document.getElementById('menu-login-mob')) document.getElementById('menu-login-mob').style.display = 'none';
+            if (document.getElementById('menu-register-mob')) document.getElementById('menu-register-mob').style.display = 'none';
 
             if (res.user.role === 'admin') {
               document.getElementById('admin-panel-alert').style.display = 'none';
@@ -870,6 +968,9 @@
       document.getElementById('logout-btn').style.display = 'none';
       document.getElementById('menu-login').style.display = 'flex';
       document.getElementById('menu-register').style.display = 'flex';
+      if (document.getElementById('menu-login-mob')) document.getElementById('menu-login-mob').style.display = 'flex';
+      if (document.getElementById('menu-register-mob')) document.getElementById('menu-register-mob').style.display = 'flex';
+      
       document.getElementById('member-dashboard-alert').style.display = 'block';
       document.getElementById('member-dashboard-content').style.display = 'none';
       document.getElementById('admin-panel-alert').style.display = 'block';
@@ -980,6 +1081,55 @@
       }
     }
 
+    // 💡 行動端卡片渲染函數（活動排班）
+    function renderDutyMobileList(activeDuties, curUserName) {
+      const mobContainer = document.getElementById('duty-mobile-list');
+      if (!mobContainer) return;
+      mobContainer.innerHTML = '';
+
+      if (!activeDuties || activeDuties.length === 0) {
+        mobContainer.innerHTML = '<div class="text-center text-muted py-4">目前尚無排定之值日或剪輯工作。</div>';
+        return;
+      }
+
+      activeDuties.forEach(function(d, idx) {
+        let camHtml = ''; 
+        let editHtml = '';
+        
+        d.personnelStatus.forEach(function(p) {
+          if (p.roleLabel.indexOf("拍攝") !== -1) {
+            if (p.memberName === curUserName && !p.hasCheckedIn) {
+              camHtml += `<div class="mt-2 d-flex justify-content-between align-items-center bg-light p-2 rounded"><span>${escapeHtml(p.roleLabel)}: <strong>您</strong></span> <button class="btn btn-success btn-xs" onclick="handleCheckInButtonClick('${escapeHtml(d.activityName)}','${escapeHtml(d.date)}',${idx})">去簽到</button></div>`;
+            } else {
+              camHtml += `<div class="mt-1 small text-muted">${escapeHtml(p.roleLabel)}: <strong>${escapeHtml(p.memberName)}</strong> ${p.hasCheckedIn?'<span class="text-success fw-bold">(已在場)</span>':'<span class="text-danger">(未打卡)</span>'}</div>`;
+            }
+          } else if (p.roleLabel.indexOf("剪輯") !== -1) {
+            if (p.memberName === curUserName && !p.hasCheckedIn) {
+              editHtml += `<div class="mt-2 d-flex justify-content-between align-items-center bg-light p-2 rounded"><span>剪輯負責: <strong>您</strong></span> <button class="btn btn-primary btn-xs" onclick="handleEditorComplete('${escapeHtml(d.activityName)}','${escapeHtml(d.date)}',${idx})">回報完成</button></div>`;
+            } else {
+              editHtml += `<div class="mt-1 small text-muted">剪輯人員: <strong>${escapeHtml(p.memberName)}</strong> ${p.hasCheckedIn?'<span class="text-primary fw-bold">(已完成)</span>':'<span class="text-warning">(剪輯中)</span>'}</div>`;
+            }
+          }
+        });
+
+        const card = document.createElement('div');
+        card.className = 'card-modern p-3 mb-3';
+        card.innerHTML = `
+          <div class="d-flex justify-content-between align-items-start border-bottom pb-2 mb-2">
+            <div>
+              <h6 class="fw-bold text-dark mb-1">${escapeHtml(d.activityName)}</h6>
+              <span class="badge bg-light text-secondary small">${escapeHtml(d.date)} (${escapeHtml(d.time)})</span>
+            </div>
+            <button class="btn btn-outline-info btn-xs" onclick="openViewStatusModal(${idx})">追蹤</button>
+          </div>
+          <div class="small mb-2"><strong>派發負責人：</strong>${escapeHtml(d.leader)}</div>
+          <div class="mb-2"><strong>拍攝狀態：</strong>${camHtml || '無'}</div>
+          <div><strong>後期進度：</strong>${editHtml || '無'}</div>
+        `;
+        mobContainer.appendChild(card);
+      });
+    }
+
     function loadDutyDataMember() {
       var curUserName = loggedInUserSession ? loggedInUserSession.name : "";
       callGAS('getActivityDuties', { userName: curUserName }, 'GET')
@@ -990,10 +1140,13 @@
           
           if(!duties || duties.length === 0) { 
             tbody.innerHTML = '<tr><td colspan="6" class="text-muted py-3">目前尚無排定之活動記錄。</td></tr>'; 
+            renderDutyMobileList([], curUserName);
             return; 
           }
           
           var activeCount = 0;
+          var validDutiesToDisplay = [];
+
           duties.forEach(function(d, idx) {
             var isAssignedToMe = false;
             var myTasksAllDone = true; 
@@ -1023,6 +1176,7 @@
 
             if (!shouldShow) return; 
             activeCount++;
+            validDutiesToDisplay.push(d);
 
             var camHtml = ''; 
             var editHtml = '';
@@ -1053,8 +1207,11 @@
             tbody.appendChild(tr);
           });
 
+          // 渲染手機端卡片清單
+          renderDutyMobileList(validDutiesToDisplay, curUserName);
+
           if (activeCount === 0) {
-            tbody.innerHTML = '<tr><td colspan="6" class="text-success fw-bold py-3"><i class="fa-solid fa-circle-check me-2"></i>好棒！目前您被指派的所有值日與製片工作已全數完成！</td></tr>';
+            tbody.innerHTML = '<tr><td colspan="6" class="text-success fw-bold py-3"><i class="fa-solid fa-circle-check me-2"></i>恭喜！目前指派給您的任務已全部安全完工！</td></tr>';
           }
         })
         .catch(function(err) {
@@ -1068,6 +1225,7 @@
           cachedDuties = duties;
           var tbody = document.getElementById('duty-tbody'); tbody.innerHTML = '';
           if(!duties || duties.length === 0) { tbody.innerHTML = '<tr><td colspan="6" class="text-muted py-3">目前無活動安排。</td></tr>'; return; }
+          
           duties.forEach(function(d, idx) {
             var camHtml = ''; var editHtml = '';
             d.personnelStatus.forEach(function(p) {
@@ -1081,6 +1239,9 @@
             tr.innerHTML = `<td><strong>${escapeHtml(d.date)}</strong></td><td class="fw-bold text-dark text-start">${escapeHtml(d.activityName)}</td><td>${escapeHtml(d.leader)}</td><td class="text-start">${camHtml}</td><td>${editHtml}</td><td><button class="btn btn-outline-info btn-sm px-2 py-1" onclick="openViewStatusModal(${idx})">追蹤</button></td>`;
             tbody.appendChild(tr);
           });
+          
+          // 管理員視窗在手機版時也套用卡片渲染
+          renderDutyMobileList(duties, "");
         })
         .catch(function(err) {
            document.getElementById('duty-tbody').innerHTML = '<tr><td colspan="6" class="text-danger py-3">管理員排班表載入失敗。</td></tr>';
@@ -1094,7 +1255,7 @@
       duty.personnelStatus.forEach(function(p) {
         var isEdit = p.roleLabel.indexOf("剪輯") !== -1;
         var tr = document.createElement('tr');
-        tr.innerHTML = `<td>${escapeHtml(p.roleLabel)}</td><td class="fw-bold">${escapeHtml(p.memberName)}</td><td>${p.hasCheckedIn?(isEdit?'<span class="badge bg-primary">已完成</span>':'<span class="badge bg-success">已在場</span>'):'<span class="badge bg-danger">未完成/未到</span>'}</td><td>${p.hasCheckedIn?escapeHtml(p.time):'--'}</td><td>${p.hasCheckedIn?escapeHtml(p.location):'-'}</td>`;
+        tr.innerHTML = `<td>${escapeHtml(p.roleLabel)}</td><td class="fw-bold">${escapeHtml(p.memberName)}</td><td>${p.hasCheckedIn?(isEdit?'<span class="badge bg-primary">已完成</span>':'<span class="badge bg-success">已在場</span>'):'<span class="badge bg-danger">未到席</span>'}</td><td>${p.hasCheckedIn?escapeHtml(p.time):'--'}</td><td>${p.hasCheckedIn?escapeHtml(p.location):'-'}</td>`;
         tbody.appendChild(tr);
       });
       
@@ -1179,7 +1340,7 @@
       for (var i = 1; i <= 5; i++) {
         starHtml += i <= stars 
           ? '<i class="fa-solid fa-star me-1"></i>' 
-          : '<i class="fa-solid fa-star text-muted me-1" style="color:#e4e5e9 !important;"></i>';
+          : '<i class="fa-solid fa-star text-muted me-1" style="color:#e2e8f0 !important;"></i>';
       }
       document.getElementById('p-stars').innerHTML = starHtml;
 
@@ -1189,9 +1350,9 @@
       if (pf.milestones && pf.milestones.length > 0) {
         pf.milestones.forEach(function(item) {
           var li = document.createElement('li'); 
-          if (item.type === 'award' || item.type.includes('競賽')) {
+          if (item.type === 'award' || item.type.includes('競賽') || item.type.includes('award')) {
             li.className = 'modal-timeline-item award';
-          } else if (item.type === 'violation' || item.type.includes('違規')) {
+          } else if (item.type === 'violation' || item.type.includes('違規') || item.type.includes('violation')) {
             li.className = 'modal-timeline-item violation';
           } else {
             li.className = 'modal-timeline-item';
@@ -1207,6 +1368,52 @@
       } else { 
         ul.innerHTML = '<li class="text-muted small">目前尚無里程碑紀錄。</li>'; 
       }
+    }
+
+    // 💡 行動端卡片渲染函數（成員清單）
+    function renderAdminMobileList(members) {
+      const mobContainer = document.getElementById('admin-mobile-list');
+      if (!mobContainer) return;
+      mobContainer.innerHTML = '';
+
+      if (!members || members.length === 0) {
+        mobContainer.innerHTML = '<div class="text-center text-muted py-4">目前尚無任何註冊成員資訊。</div>';
+        return;
+      }
+
+      members.forEach(function(m) {
+        let btnHtml = '';
+        if (m.role === 'admin') {
+          btnHtml = '<span class="badge bg-warning text-dark">管理員</span>';
+        } else if (m.role === 'pending') {
+          btnHtml = `<div class="d-flex gap-2"><button class="btn btn-success btn-xs flex-grow-1" onclick="handleApprove('${m.studentId}')">通過</button><button class="btn btn-danger btn-xs flex-grow-1" onclick="handleDelete('${m.studentId}')">拒絕</button></div>`;
+        } else {
+          btnHtml = `
+            <div class="d-flex gap-2">
+              <button class="btn btn-primary btn-xs flex-grow-1" onclick="openPortfolioModal('${m.studentId}')"><i class="fa-solid fa-user-pen me-1"></i>成長檔案</button>
+              <button class="btn btn-outline-danger btn-xs" onclick="handleDelete('${m.studentId}')">刪除</button>
+            </div>
+          `;
+        }
+
+        const card = document.createElement('div');
+        card.className = 'card-modern p-3 mb-3';
+        card.innerHTML = `
+          <div class="d-flex align-items-center gap-3 border-bottom pb-3 mb-3">
+            <img src="${m.photo || 'https://picsum.photos/150'}" class="table-img" onerror="this.src='https://picsum.photos/150';">
+            <div>
+              <h6 class="fw-bold text-dark mb-0">${escapeHtml(m.name)}</h6>
+              <small class="text-muted">學號: ${escapeHtml(m.studentId)} | 班級: ${escapeHtml(m.className)}</small>
+            </div>
+          </div>
+          <div class="small mb-3">
+            <div><strong>聯絡電話：</strong>${escapeHtml(m.phone || '無')}</div>
+            <div><strong>緊急聯絡：</strong>${escapeHtml(m.parentName || '')} (${escapeHtml(m.relationship || '')}) / ${escapeHtml(m.parentPhone || '')}</div>
+          </div>
+          <div class="pt-2 border-top">${btnHtml}</div>
+        `;
+        mobContainer.appendChild(card);
+      });
     }
 
     function loadAdminData() {
@@ -1238,6 +1445,9 @@
                               <td>${btn}</td>`;
               tbody.appendChild(tr);
             });
+
+            // 行動端專用卡片清單更新
+            renderAdminMobileList(members);
           }
         })
         .catch(function(err) {
@@ -1262,8 +1472,20 @@
 
     function filterTable() {
       var input = document.getElementById('search-input').value.toUpperCase();
+      
+      // 過濾桌機表格
       var rows = document.getElementById('admin-tbody').getElementsByTagName('tr');
-      for (var i = 0; i < rows.length; i++) { var txt = rows[i].textContent || rows[i].innerText; rows[i].style.display = txt.toUpperCase().indexOf(input) > -1 ? "" : "none"; }
+      for (var i = 0; i < rows.length; i++) { 
+        var txt = rows[i].textContent || rows[i].innerText; 
+        rows[i].style.display = txt.toUpperCase().indexOf(input) > -1 ? "" : "none"; 
+      }
+
+      // 過濾手機卡片清單
+      var cards = document.querySelectorAll('#admin-mobile-list .card-modern');
+      cards.forEach(function(card) {
+        var txt = card.textContent || card.innerText;
+        card.style.display = txt.toUpperCase().indexOf(input) > -1 ? "" : "none";
+      });
     }
 
     // ==========================================
@@ -1328,37 +1550,68 @@
         });
     }
 
+    // 💡 行動端卡片渲染函數（器材借用）
+    function renderBorrowMobileList(records) {
+      const mobContainer = document.getElementById('borrow-mobile-list');
+      if (!mobContainer) return;
+      mobContainer.innerHTML = '';
+
+      if (!records || records.length === 0) {
+        mobContainer.innerHTML = '<div class="text-center text-muted py-4">目前無任何借用登記紀錄。</div>';
+        return;
+      }
+
+      records.forEach(function(r) {
+        const card = document.createElement('div');
+        card.className = 'card-modern p-3 mb-3';
+        card.innerHTML = `
+          <div class="d-flex justify-content-between align-items-center border-bottom pb-2 mb-2">
+            <div>
+              <strong class="text-dark">${escapeHtml(r.name)}</strong>
+              <span class="badge bg-light text-dark ms-2 border">${escapeHtml(r.identity || '訪客')}</span>
+            </div>
+            <span class="badge bg-dark">${escapeHtml(r.duration || '0')} 小時</span>
+          </div>
+          <div class="small mb-1"><strong>預借日期：</strong>${escapeHtml(r.date)} (${escapeHtml(r.time)})</div>
+          <div class="small mb-2"><strong>出借器材：</strong><span class="text-primary fw-bold">${escapeHtml(r.equipment)}</span></div>
+          <div class="small text-muted text-end" style="font-size:0.75rem;">登記時間: ${escapeHtml(r.timestamp)}</div>
+        `;
+        mobContainer.appendChild(card);
+      });
+    }
+
     function loadBorrowRecords() {
       var recordsBody = document.getElementById('borrowRecordsBody');
       if (!recordsBody) return; 
       
-      recordsBody.innerHTML = '<tr><td colspan="9" class="text-center"><div class="spinner-border spinner-border-sm text-secondary me-2"></div>資料載入中...</td></tr>';
+      recordsBody.innerHTML = '<tr><td colspan="8" class="text-center"><div class="spinner-border spinner-border-sm text-secondary me-2"></div>資料載入中...</td></tr>';
     
       callGAS('getBorrowRecords', {}, 'GET')
         .then(function(records) {
           var html = "";
           if (!records || records.length === 0 || (records.success === false)) {
             var msg = (records && records.message) ? records.message : "目前暫無任何器材借用登記紀錄。";
-            html = '<tr><td colspan="9" class="text-center text-muted">' + msg + '</td></tr>';
+            html = '<tr><td colspan="8" class="text-center text-muted">' + msg + '</td></tr>';
+            renderBorrowMobileList([]);
           } else {
             for (var i = 0; i < records.length; i++) {
               html += "<tr>" +
-                        "<td class='cell-time'>" + escapeHtml(records[i].timestamp || '') + "</td>" +
+                        "<td>" + escapeHtml(records[i].timestamp || '') + "</td>" +
                         "<td><span class='badge bg-light text-dark border'>" + escapeHtml(records[i].identity || '') + "</span></td>" +
                         "<td><strong>" + escapeHtml(records[i].name || '') + "</strong></td>" +
                         "<td>" + escapeHtml(records[i].className || '') + "</td>" +
                         "<td>" + escapeHtml(records[i].phone || '') + "</td>" +
-                        "<td class='cell-wrap-text text-start'><span class='text-primary fw-bold'>" + escapeHtml(records[i].equipment || '') + "</span></td>" +
-                        "<td>" + escapeHtml(records[i].date || '') + "</td>" +
-                        "<td>" + escapeHtml(records[i].time || '') + "</td>" +
+                        "<td class='text-start text-primary fw-bold'>" + escapeHtml(records[i].equipment || '') + "</td>" +
+                        "<td>" + escapeHtml(records[i].date || '') + " " + escapeHtml(records[i].time || '') + "</td>" +
                         "<td><span class='badge bg-dark'>" + escapeHtml(records[i].duration || '0') + " 小時</span></td>" +
                       "</tr>";
             }
+            renderBorrowMobileList(records);
           }
           recordsBody.innerHTML = html;
         })
         .catch(function(err) {
-          recordsBody.innerHTML = '<tr><td colspan="9" class="text-center text-danger">載入失敗。</td></tr>';
+          recordsBody.innerHTML = '<tr><td colspan="8" class="text-center text-danger">載入失敗。</td></tr>';
           alert("載入借用紀錄失敗：" + err.message);
         });
     }
@@ -1425,9 +1678,9 @@
         
         currentOldMilestones.forEach(function(m, idx) {
           var li = document.createElement('li'); 
-          if (m.type === 'award' || m.type.includes('競賽')) {
+          if (m.type === 'award' || m.type.includes('競賽') || m.type.includes('award')) {
             li.className = 'modal-timeline-item award';
-          } else if (m.type === 'violation' || m.type.includes('違規')) {
+          } else if (m.type === 'violation' || m.type.includes('違規') || m.type.includes('violation')) {
             li.className = 'modal-timeline-item violation';
           } else {
             li.className = 'modal-timeline-item';
@@ -1467,10 +1720,10 @@
       div.innerHTML = `
         <button type="button" class="btn-close position-absolute top-0 end-0 m-2" style="font-size: 0.7rem;" onclick="this.parentElement.remove(); calcPortfolioTotals();"></button>
         <div class="row g-2 pt-2 text-start">
-          <div class="col-md-3"><input type="text" class="form-control form-control-sm new-ms-date" placeholder="日期(2026-07)" oninput="calcPortfolioTotals()"></div>
-          <div class="col-md-6"><input type="text" class="form-control form-control-sm new-ms-title" placeholder="新里程碑標題..." oninput="calcPortfolioTotals()"></div>
-          <div class="col-md-3"><select class="form-select form-select-sm new-ms-type"><option value="normal">一般經歷</option><option value="award">🏆 榮獲獎項</option></select></div>
-          <div class="col-md-12"><input type="text" class="form-control form-control-sm new-ms-desc" placeholder="詳細描述(選填)..."></div>
+          <div class="col-12 col-md-3"><input type="text" class="form-control form-control-sm new-ms-date" placeholder="日期(2026-07)" oninput="calcPortfolioTotals()"></div>
+          <div class="col-12 col-md-6"><input type="text" class="form-control form-control-sm new-ms-title" placeholder="新里程碑標題..." oninput="calcPortfolioTotals()"></div>
+          <div class="col-12 col-md-3"><select class="form-select form-select-sm new-ms-type"><option value="normal">一般經歷</option><option value="award">🏆 榮獲獎項</option></select></div>
+          <div class="col-12"><input type="text" class="form-control form-control-sm new-ms-desc" placeholder="詳細描述(選填)..."></div>
         </div>
       `;
       container.appendChild(div); 
@@ -1637,7 +1890,7 @@
       showLoading(false); 
     });
   </script>
-  <!-- Bootstrap 5 JS Bundle -->
-  <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/js/bootstrap.bundle.min.js"></script>
+  <!-- Bootstrap 5.3 JS Bundle -->
+  <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.2/dist/js/bootstrap.bundle.min.js"></script>
 </body>
 </html>
