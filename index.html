@@ -413,7 +413,7 @@
                 <div class="col-12 col-md-6"><label class="form-label small fw-bold text-secondary">學號 (作為登入帳號)</label><input type="text" id="reg-id" class="form-control" required></div>
                 <div class="col-12 col-md-6"><label class="form-label small fw-bold text-secondary">設定密碼</label><input type="password" id="reg-pwd" class="form-control" required></div>
                 <div class="col-12 col-md-4"><label class="form-label small fw-bold text-secondary">真實姓名</label><input type="text" id="reg-name" class="form-control" required></div>
-                <div class="col-12 col-md-4"><label class="form-label small fw-bold text-secondary">班級座號 (例: 高一A 01號)</label><input type="text" id="reg-class" class="form-control" placeholder="例: 高一A 01號" required></div>
+                <div class="col-12 col-md-4"><label class="form-label small fw-bold text-secondary">班級學號 (例: s1r01)</label><input type="text" id="reg-class" class="form-control" placeholder="例: 高一A 01號" required></div>
                 <div class="col-12 col-md-4"><label class="form-label small fw-bold text-secondary">個人聯絡電話</label><input type="tel" id="reg-phone" class="form-control" required></div>
                 <div class="col-12 col-md-4"><label class="form-label small fw-bold text-secondary">家長姓名</label><input type="text" id="reg-pname" class="form-control" required></div>
                 <div class="col-12 col-md-4"><label class="form-label small fw-bold text-secondary">與學生關係</label><input type="text" id="reg-prel" class="form-control" placeholder="如: 父親、母親" required></div>
@@ -657,7 +657,8 @@
             <div class="mb-3"><label class="form-label small fw-bold">新活動名稱</label><input type="text" id="duty-activity-name" class="form-control" required placeholder="例如：115學年度畢業典禮紀錄"></div>
             <div class="row g-2 mb-3">
               <div class="col-6"><label class="form-label small fw-bold">執行日期</label><input type="date" id="duty-date" class="form-control" required></div>
-              <div class="col-6"><label class="form-label small fw-bold">執行時間區段</label><input type="text" id="duty-time" class="form-control" placeholder="例 08:30~12:00" required></div>
+              <div class="col-3"><label class="form-label small fw-bold">開始時間</label><input type="time" id="duty-time-start" class="form-control" required></div>
+              <div class="col-3"><label class="form-label small fw-bold">結束時間</label><input type="time" id="duty-time-end" class="form-control" required></div>
             </div>
             <div class="mb-3"><label class="form-label small fw-bold">活動總負責人（通常為老師）</label><input type="text" id="duty-leader" class="form-control" placeholder="請輸入指導老師名字" required></div>
             
@@ -1279,20 +1280,25 @@
 
     function handleDutySubmit(e) {
       e.preventDefault();
+      
+      // 組合開始與結束時間，例如: "08:30~12:00"
+      var timeRange = document.getElementById('duty-time-start').value + "~" + document.getElementById('duty-time-end').value;
+    
       var payload = {
         activityName: document.getElementById('duty-activity-name').value.trim(), 
         date: document.getElementById('duty-date').value, 
-        time: document.getElementById('duty-time').value.trim(), 
+        time: timeRange, // 自動組合
         leader: document.getElementById('duty-leader').value.trim(),
         cam1: document.getElementById('duty-cam1').value, 
         cam2: document.getElementById('duty-cam2').value, 
         cam3: document.getElementById('duty-cam3').value, 
         editor: document.getElementById('duty-editor').value
       };
+      
       showLoading(true); 
       dutyModalObj = bootstrap.Modal.getOrCreateInstance(document.getElementById('dutyModal'));
       dutyModalObj.hide();
-
+    
       callGAS('submitActivityDuty', payload)
         .then(function(res) { 
           showLoading(false); 
@@ -1493,12 +1499,22 @@
     // ==========================================
     function openBorrowModal() {
       document.getElementById('borrow-form').reset();
-      document.getElementById('borrow-date').value = new Date().toISOString().split('T')[0];
+      
+      // 取得在地時間的 ISO 字串 (修正時區差)
+      var now = new Date();
+      var localDate = now.toLocaleDateString('fr-CA'); // 格式化為 YYYY-MM-DD
+      var localTime = now.toTimeString().split(' ')[0].substring(0, 5); // 格式化為 HH:MM
+      
+      document.getElementById('borrow-date').value = localDate;
+      document.getElementById('borrow-time').value = localTime; // 自動帶入目前時間
+    
       if (loggedInUserSession) {
-        document.getElementById('borrow-member-block').style.display = 'block'; document.getElementById('borrow-guest-block').style.display = 'none';
+        document.getElementById('borrow-member-block').style.display = 'block'; 
+        document.getElementById('borrow-guest-block').style.display = 'none';
         document.getElementById('borrow-member-info').innerText = loggedInUserSession.name;
       } else {
-        document.getElementById('borrow-member-block').style.display = 'none'; document.getElementById('borrow-guest-block').style.display = 'flex';
+        document.getElementById('borrow-member-block').style.display = 'none'; 
+        document.getElementById('borrow-guest-block').style.display = 'flex';
       }
       
       borrowModalObj = bootstrap.Modal.getOrCreateInstance(document.getElementById('borrowModal'));
