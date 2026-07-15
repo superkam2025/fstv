@@ -1709,6 +1709,8 @@
           } else {
             li.className = 'modal-timeline-item';
           }
+          
+          // 完全保留您原本帶有「刪除垃圾桶按鈕」的 HTML 結構與樣式
           li.innerHTML = `
             <div class="d-flex justify-content-between align-items-start">
               <div>
@@ -1755,23 +1757,32 @@
     }
 
     function calcPortfolioTotals() {
-      var types = ['learn', 'activity', 'contest', 'skills', 'late', 'absent'];
-      types.forEach(function(type) {
-        var oldValEl = document.getElementById('old-' + type);
-        var addValEl = document.getElementById('add-' + type);
-        var totalValEl = document.getElementById('total-' + type);
-        
-        if (oldValEl && addValEl && totalValEl) {
-          var oldVal = parseInt(oldValEl.innerText) || 0;
-          var addVal = parseInt(addValEl.value) || 0;
-          totalValEl.innerText = Math.max(0, oldVal + addVal);
-        }
-      });
-    }
+      var oldLearn = parseInt(document.getElementById('old-learn').innerText) || 0;
+      var addLearn = parseInt(document.getElementById('add-learn').value) || 0;
+      document.getElementById('total-learn').innerText = oldLearn + addLearn;
 
+      var oldActivity = parseInt(document.getElementById('old-activity').innerText) || 0;
+      var addActivity = parseInt(document.getElementById('add-activity').value) || 0;
+      document.getElementById('total-activity').innerText = oldActivity + addActivity;
+
+      var oldContest = parseInt(document.getElementById('old-contest').innerText) || 0;
+      var addContest = parseInt(document.getElementById('add-contest').value) || 0;
+      document.getElementById('total-contest').innerText = oldContest + addContest;
+
+      var oldSkills = parseInt(document.getElementById('old-skills').innerText) || 0;
+      var addSkills = parseInt(document.getElementById('add-skills').value) || 0;
+      document.getElementById('total-skills').innerText = oldSkills + addSkills;
+
+      var oldLate = parseInt(document.getElementById('old-late').innerText) || 0;
+      var addLate = parseInt(document.getElementById('add-late').value) || 0;
+      document.getElementById('total-late').innerText = oldLate + addLate;
+
+      var oldAbsent = parseInt(document.getElementById('old-absent').innerText) || 0;
+      var addAbsent = parseInt(document.getElementById('add-absent').value) || 0;
+      document.getElementById('total-absent').innerText = oldAbsent + addAbsent;
+    }
     function closePortfolioModal() { 
-      portfolioModalObj = bootstrap.Modal.getOrCreateInstance(document.getElementById('portfolioModal'));
-      portfolioModalObj.hide(); 
+     if(portfolioModalObj) portfolioModalObj.hide();
     }
 
     function savePortfolioChanges() {
