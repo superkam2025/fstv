@@ -570,24 +570,22 @@
       </div>
     </div>
 
-  <!-- 區塊七：成員線上請假 -->
-  <div id="leave-view" class="view-section">
+  <!-- ========================================== -->
+  <!-- 💡 區塊七：成員線上請假中心 -->
+  <!-- ========================================== -->
+  <div id="leave-view" class="view-section" style="display:none;">
     <div class="row justify-content-center">
       <!-- 當為一般隊員或未登入時，寬度維持 col-md-8；管理員查看表格時，自動拓寬至 col-md-11 以利閱讀 -->
       <div id="leave-card-container" class="col-12 col-md-8 transition-all">
         <div class="card-modern p-4 p-md-5">
           
-          <!-- ========================================== -->
-          <!-- 🔓 未登入狀態提示 -->
-          <!-- ========================================== -->
-          <div id="leave-auth-alert" class="alert alert-warning">
-            <i class="fa-solid fa-triangle-exclamation me-2"></i>請先登入帳號，系統會自動綁定您的班級學號與姓名。
+          <!-- 🔓 未登入狀態提示 (若未登入，此提示顯示；若已登入，可透過 JS 控制將此 alert 隱藏或移除) -->
+          <div id="leave-auth-alert" class="alert alert-warning mb-4">
+            <i class="fa-solid fa-triangle-exclamation me-2"></i>請先登入帳號，系統將自動綁定您的個人基本資料與姓名。
           </div>
   
-          <!-- ========================================== -->
-          <!-- 👤 1. 一般隊員介面：線上請假表單 -->
-          <!-- ========================================== -->
-          <div id="leave-apply-section" style="display:none;">
+          <!-- 👤 1. 一般隊員介面：線上請假表單 (預設不隱藏，讓通過驗證的成員直接使用) -->
+          <div id="leave-apply-section">
             <h4 class="fw-bold text-dark mb-4">
               <i class="fa-solid fa-user-clock me-2 text-warning"></i>隊員線上請假申請單
             </h4>
@@ -595,11 +593,11 @@
               <div class="row g-3">
                 <div class="col-12 col-md-6">
                   <label class="form-label small fw-bold text-secondary">姓名</label>
-                  <input type="text" id="leave-name" class="form-control" readonly>
+                  <input type="text" id="leave-name" class="form-control bg-light" readonly>
                 </div>
                 <div class="col-12 col-md-6">
                   <label class="form-label small fw-bold text-secondary">班級學號</label>
-                  <input type="text" id="leave-class-id" class="form-control" readonly>
+                  <input type="text" id="leave-class-id" class="form-control bg-light" readonly>
                 </div>
                 <div class="col-12">
                   <label class="form-label small fw-bold text-secondary">請假種類 (假別)</label>
@@ -614,13 +612,13 @@
                   <textarea id="leave-reason" class="form-control" rows="4" placeholder="請詳細敘述此時間段內無法出席公務之原因..." required></textarea>
                 </div>
               </div>
-              <button type="submit" class="btn btn-warning w-100 mt-4 py-3 text-dark fw-bold shadow-sm">提交請假單給管理員</button>
+              <button type="submit" class="btn btn-warning w-100 mt-4 py-3 text-dark fw-bold shadow-sm">
+                <i class="fa-solid fa-paper-plane me-2"></i>提交請假單給管理員
+              </button>
             </form>
           </div>
   
-          <!-- ========================================== -->
-          <!-- 🔑 2. 管理員介面：成員請假狀況與審批中心 -->
-          <!-- ========================================== -->
+          <!-- 🔑 2. 管理員介面：成員請假狀況與審批中心 (預設隱藏，僅在 admin 權限啟動時顯示) -->
           <div id="leave-admin-section" style="display:none;">
             <div class="d-flex flex-column flex-md-row justify-content-between align-items-md-center mb-4 gap-3">
               <h4 class="fw-bold text-dark m-0">
