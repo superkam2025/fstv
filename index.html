@@ -1539,7 +1539,10 @@
       ul.innerHTML = '';
       
       if (pf.milestones && pf.milestones.length > 0) {
-        pf.milestones.forEach(function(item) {
+        // 【修正重點】使用 .slice().reverse() 複製並反轉陣列，讓最新的里程碑排在最上方
+        var sortedMilestones = pf.milestones.slice().reverse();
+    
+        sortedMilestones.forEach(function(item) {
           var li = document.createElement('li'); 
           var typeStr = String(item.type || '').toLowerCase();
     
@@ -1553,7 +1556,7 @@
           
           var cleanTitle = String(item.title || '')
             .replace(/^\[(violation|award|normal)\]\s*/i, '');
-
+    
           li.innerHTML = `
             <div class="modal-timeline-date">${escapeHtml(item.date || '')}</div>
             <div class="fw-bold text-dark">${escapeHtml(cleanTitle)}</div>
