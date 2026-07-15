@@ -1703,11 +1703,11 @@
         currentOldMilestones.forEach(function(m, idx) {
           var li = document.createElement('li'); 
           if (m.type === 'award' || m.type.includes('競賽') || m.type.includes('award')) {
-            li.className = 'modal-timeline-item award';
+            li.className = 'modal-timeline-item award'; // 🔴 觸發黃點
           } else if (m.type === 'violation' || m.type.includes('違規') || m.type.includes('violation')) {
-            li.className = 'modal-timeline-item violation';
+            li.className = 'modal-timeline-item violation'; // 🟡 觸發紅點
           } else {
-            li.className = 'modal-timeline-item';
+            li.className = 'modal-timeline-item'; // 🔵 觸發預設藍點 (包含 normal)
           }
           
           // 完全保留您原本帶有「刪除垃圾桶按鈕」的 HTML 結構與樣式
