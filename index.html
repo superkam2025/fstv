@@ -357,6 +357,7 @@
         <a id="menu-dashboard-mob" onclick="switchView('member-dashboard-view')" data-bs-dismiss="offcanvas"><i class="fa-solid fa-chart-line"></i>個人專屬檔案</a>
         <a id="menu-duty-mob" onclick="switchView('duty-table-view')" data-bs-dismiss="offcanvas"><i class="fa-solid fa-calendar-check"></i>活動值日簽到</a>
         <a id="menu-borrow-mob" onclick="switchView('borrow-view')" data-bs-dismiss="offcanvas"><i class="fa-solid fa-toolbox"></i>器材借用綜合表</a>
+        <a id="menu-leave" onclick="switchView('leave-view')"><i class="fa-solid fa-user-clock"></i>成員線上請假申請</a>
         <a id="menu-admin-mob" onclick="switchView('admin-panel-view')" data-bs-dismiss="offcanvas" style="border-top: 1px solid rgba(255,255,255,0.1);"><i class="fa-solid fa-user-shield"></i>高階管理控制台</a>
       </div>
     </div>
@@ -373,6 +374,7 @@
       <a id="menu-dashboard" onclick="switchView('member-dashboard-view')"><i class="fa-solid fa-chart-line"></i>個人專屬檔案</a>
       <a id="menu-duty" onclick="switchView('duty-table-view')"><i class="fa-solid fa-calendar-check"></i>活動值日簽到</a>
       <a id="menu-borrow" onclick="switchView('borrow-view')"><i class="fa-solid fa-toolbox"></i>器材借用綜合表</a>
+      <a id="menu-leave" onclick="switchView('leave-view')"><i class="fa-solid fa-user-clock"></i>成員線上請假申請</a>
       <a id="menu-admin" onclick="switchView('admin-panel-view')" style="border-top: 1px solid rgba(255,255,255,0.1);"><i class="fa-solid fa-user-shield"></i>高階管理控制台</a>
     </div>
   </div>
@@ -582,6 +584,44 @@
           </div>
         </div>
 
+    <!-- 區塊七：成員線上請假 -->
+    <div id="leave-view" class="view-section">
+      <div class="row justify-content-center">
+        <div class="col-12 col-md-8">
+          <div class="card-modern p-4 p-md-5">
+            <h4 class="fw-bold text-dark mb-4"><i class="fa-solid fa-user-clock me-2 text-warning"></i>隊員線上請假申請單</h4>
+            <div id="leave-auth-alert" class="alert alert-warning"><i class="fa-solid fa-triangle-exclamation me-2"></i>請先登入帳號，系統會自動綁定您的班級學號與姓名。</div>
+            
+            <form id="leave-form" onsubmit="handleLeaveSubmit(event)" style="display:none;">
+              <div class="row g-3">
+                <div class="col-12 col-md-6">
+                  <label class="form-label small fw-bold text-secondary">姓名</label>
+                  <input type="text" id="leave-name" class="form-control" readonly>
+                </div>
+                <div class="col-12 col-md-6">
+                  <label class="form-label small fw-bold text-secondary">班級學號</label>
+                  <input type="text" id="leave-class-id" class="form-control" readonly>
+                </div>
+                <div class="col-12">
+                  <label class="form-label small fw-bold text-secondary">請假種類 (假別)</label>
+                  <select id="leave-type" class="form-select" required>
+                    <option value="" disabled selected>-- 請選擇假別 --</option>
+                    <option value="事假">個人事假</option>
+                    <option value="病假">生理病假/公假</option>
+                  </select>
+                </div>
+                <div class="col-12">
+                  <label class="form-label small fw-bold text-secondary">請假詳細事由與理由說明</label>
+                  <textarea id="leave-reason" class="form-control" rows="4" placeholder="請詳細敘述此時間段內無法出席公務之原因..." required></textarea>
+                </div>
+              </div>
+              <button type="submit" class="btn btn-warning w-100 mt-4 py-3 text-dark fw-bold shadow-sm">提交請假單給管理員</button>
+            </form>
+          </div>
+        </div>
+      </div>
+    </div>
+        
         <div class="card-modern p-4">
           <div class="d-flex flex-column flex-md-row justify-content-between align-items-start align-items-md-center gap-3 mb-4">
             <h5 class="fw-bold text-dark mb-0"><i class="fa-solid fa-users me-2 text-secondary"></i>全體成員名冊</h5>
@@ -825,7 +865,26 @@
       </div>
     </div>
   </div>
-   
+
+  <!-- 管理員實時請假彈窗浮示錄 -->
+<div class="position-fixed bottom-0 end-0 p-3" style="z-index: 1100">
+  <div id="leaveToast" class="toast card-modern" role="alert" aria-live="assertive" aria-atomic="true" data-bs-autohide="false">
+    <div class="toast-header bg-warning text-dark">
+      <i class="fa-solid fa-bell me-2"></i>
+      <strong class="me-auto">系統即時重要通知</strong>
+      <small>剛剛</small>
+      <button type="button" class="btn-close" data-bs-dismiss="toast" aria-label="Close"></button>
+    </div>
+    <div class="toast-body p-3">
+      <p id="leave-toast-text" class="mb-3 small fw-bold text-dark">有人提交了請假單...</p>
+      <div class="d-flex gap-2 justify-content-end">
+        <button id="leave-toast-btn" class="btn btn-success btn-xs">核准批准</button>
+        <button type="button" class="btn btn-secondary btn-xs" data-bs-dismiss="toast">暫不處理</button>
+      </div>
+    </div>
+  </div>
+</div>
+  
   <script>
     // 確保此 URL 是您 Google Apps Script Web App 部署後取得的最新執行網址
     const GAS_WEB_APP_URL = "https://script.google.com/macros/s/AKfycbynEA1QcyEF6a0UMHjex87Yr-WhgDcZEnCwFXiakbxr7QAXbWSGCPLUzl09v6etG0KGbA/exec";
@@ -892,6 +951,7 @@
         'duty-table-view': '電視台活動值日與簽到回報系統',
         'borrow-view': '器材借用與出借綜合登記表',
         'admin-panel-view': '高階安全管理員控制台面板'
+        'leave-view': '成員線上請假申請中心'
       };
       if (titleMap[viewId]) document.getElementById('page-title').innerText = titleMap[viewId];
 
@@ -923,12 +983,12 @@
       var pwdEl = document.getElementById('login-pwd');
       var id = idEl ? idEl.value.trim() : '';
       var pwd = pwdEl ? pwdEl.value : '';
-
+    
       if (!id || !pwd) {
         alert("請輸入帳號與密碼！");
         return;
       }
-
+    
       showLoading(true);
       callGAS('login', { id: id, pwd: pwd }, 'GET')
         .then(function(res) {
@@ -936,7 +996,8 @@
           if (res.success) {
             loggedInUserSession = res.user;
             alert("身分驗證通過！歡迎 " + res.user.name + " 登入系統。");
-
+    
+            // === 1. 基礎 UI 狀態更新 ===
             var uTag = document.getElementById('user-tag');
             if (uTag) {
               uTag.innerText = "👤 " + res.user.name + " (" + (res.user.role === 'admin' ? '管理員' : '內部成員') + ")";
@@ -945,22 +1006,42 @@
             
             var logoutBtn = document.getElementById('logout-btn');
             if (logoutBtn) logoutBtn.style.display = 'inline-block';
-
+    
             document.getElementById('menu-login').style.display = 'none';
             document.getElementById('menu-register').style.display = 'none';
             if (document.getElementById('menu-login-mob')) document.getElementById('menu-login-mob').style.display = 'none';
             if (document.getElementById('menu-register-mob')) document.getElementById('menu-register-mob').style.display = 'none';
-
+    
+            // === 2. 整合「請假系統」前端連動狀態 ===
+            var leaveAuthAlert = document.getElementById('leave-auth-alert');
+            var leaveForm = document.getElementById('leave-form');
+            var leaveName = document.getElementById('leave-name');
+            var leaveClassId = document.getElementById('leave-class-id');
+    
+            if (leaveAuthAlert) leaveAuthAlert.style.display = 'none';
+            if (leaveForm) leaveForm.style.display = 'block';
+            if (leaveName) leaveName.value = res.user.name;
+            if (leaveClassId) leaveClassId.value = (res.user.className || "") + " / " + res.user.studentId;
+    
+            // === 3. 分流：管理員 vs. 內部成員 ===
             if (res.user.role === 'admin') {
+              // 管理員視圖控制
               document.getElementById('admin-panel-alert').style.display = 'none';
               document.getElementById('admin-panel-content').style.display = 'block';
               document.getElementById('adminBorrowSection').style.display = 'block';
-
+    
               loadAdminData();
               initAdminMemberDropdown();
               loadBorrowRecords(); 
               switchView('admin-panel-view');
+    
+              // 【追加】管理員專屬：啟動實時請假申請輪詢監聽 (每 10 秒自動檢查一次)
+              if (typeof checkPendingLeavesForAdmin === 'function') {
+                checkPendingLeavesForAdmin(); // 登入時先立即檢查一次
+                setInterval(checkPendingLeavesForAdmin, 10000);
+              }
             } else {
+              // 一般成員視圖控制
               document.getElementById('member-dashboard-alert').style.display = 'none';
               document.getElementById('member-dashboard-content').style.display = 'block';
               
@@ -1956,6 +2037,81 @@
       } 
     }
 
+    // 成員提交請假單
+    function handleLeaveSubmit(e) {
+      e.preventDefault();
+      if(!loggedInUserSession) return alert("請先登入系統！");
+      
+      var payload = {
+        studentId: loggedInUserSession.studentId,
+        name: loggedInUserSession.name,
+        className: loggedInUserSession.className,
+        leaveType: document.getElementById('leave-type').value,
+        reason: document.getElementById('leave-reason').value.trim()
+      };
+      
+      showLoading(true);
+      callGAS('submitLeaveRequest', payload)
+        .then(function(res) {
+          showLoading(false);
+          alert(res.message);
+          if(res.success) {
+            document.getElementById('leave-reason').value = "";
+            document.getElementById('leave-type').selectedIndex = 0;
+          }
+        })
+        .catch(function(err){
+          showLoading(false);
+          alert("提交失敗: " + err.message);
+        });
+    }
+    
+    // 管理員定期輪詢未審查的請假
+    function checkPendingLeavesForAdmin() {
+      if (!loggedInUserSession || loggedInUserSession.role !== 'admin') return;
+      
+      callGAS('getPendingLeaves', {}, 'GET')
+        .then(function(list) {
+          if(list && list.length > 0) {
+            var first = list[0];
+            document.getElementById('leave-toast-text').innerHTML = 
+              `🔔 <strong>${escapeHtml(first.className)} ${escapeHtml(first.name)}</strong> 申請了<u>${escapeHtml(first.leaveType)}</u>。<br>理由：${escapeHtml(first.reason)}`;
+            
+            // 重新綁定批准按鈕的點擊事件
+            var approveBtn = document.getElementById('leave-toast-btn');
+            approveBtn.onclick = function() {
+              processLeaveApproval(first.leaveId, first.studentId);
+            };
+            
+            // 顯示 Bootstrap 吐司彈窗
+            var toastEl = document.getElementById('leaveToast');
+            var toast = bootstrap.Toast.getOrCreateInstance(toastEl);
+            toast.show();
+          }
+        });
+    }
+    
+    // 執行批准請假
+    function processLeaveApproval(leaveId, studentId) {
+      showLoading(true);
+      callGAS('approveLeaveRequest', { leaveId: leaveId, studentId: studentId }, 'POST')
+        .then(function(res) {
+          showLoading(false);
+          alert(res.message);
+          
+          // 隱藏彈窗
+          var toastEl = document.getElementById('leaveToast');
+          var toast = bootstrap.Toast.getOrCreateInstance(toastEl);
+          toast.hide();
+          
+          // 實時重新加載數據與成員狀態
+          refreshUserProfileAndDuty();
+        })
+        .catch(function(err){
+          showLoading(false);
+          alert("審批失敗: " + err.message);
+        });
+    }
     // 初始化網頁設定
     document.addEventListener("DOMContentLoaded", function() { 
       showLoading(false); 
