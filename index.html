@@ -1383,7 +1383,7 @@
           
           li.innerHTML = `
             <div class="modal-timeline-date">${escapeHtml(item.date)}</div>
-            <div class="fw-bold text-dark">[${escapeHtml(item.type)}] ${escapeHtml(item.title)}</div>
+            <div class="fw-bold text-dark">${escapeHtml(item.title)}</div>
             <p class="text-muted small mb-0">${escapeHtml(item.desc || '')}</p>
           `;
           ul.appendChild(li);
