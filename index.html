@@ -1149,93 +1149,99 @@
     }
 
     function loadDutyDataMember() {
-      var curUserName = loggedInUserSession ? loggedInUserSession.name : "";
-      callGAS('getActivityDuties', { userName: curUserName }, 'GET')
-        .then(function(duties) {
-          cachedDuties = duties;
-          var tbody = document.getElementById('duty-tbody'); 
-          tbody.innerHTML = '';
-          
-          if(!duties || duties.length === 0) { 
-            tbody.innerHTML = '<tr><td colspan="6" class="text-muted py-3">目前尚無排定之活動記錄。</td></tr>'; 
-            renderDutyMobileList([], curUserName);
-            return; 
-          }
-          
-          var activeCount = 0;
-          var validDutiesToDisplay = [];
+  var curUserName = loggedInUserSession ? loggedInUserSession.name : "";
+  callGAS('getActivityDuties', { userName: curUserName }, 'GET')
+    .then(function(duties) {
+      cachedDuties = duties;
+      var tbody = document.getElementById('duty-tbody'); 
+      tbody.innerHTML = '';
+      
+      if(!duties || duties.length === 0) { 
+        tbody.innerHTML = '<tr><td colspan="6" class="text-muted py-3">目前尚無排定之活動記錄。</td></tr>'; 
+        renderDutyMobileList([], curUserName);
+        return; 
+      }
+      
+      var activeCount = 0;
+      var validDutiesToDisplay = [];
 
-          duties.forEach(function(d, idx) {
-            var isAssignedToMe = false;
-            var myTasksAllDone = true; 
-            var totalAssignedSlots = 0;
-            var totalDoneSlots = 0;
+      duties.forEach(function(d, idx) {
+        var isAssignedToMe = false;
+        var myTasksAllDone = true; // 預設我的任務都做完了
+        var totalAssignedSlots = 0;
+        var totalDoneSlots = 0;
 
-            d.personnelStatus.forEach(function(p) {
-              if (p.memberName) {
-                totalAssignedSlots++;
-                if (p.hasCheckedIn) totalDoneSlots++;
-                
-                if (p.memberName === curUserName) {
-                  isAssignedToMe = true;
-                  if (!p.hasCheckedIn) {
-                    myTasksAllDone = false;
-                  }
-                }
-              }
-            });
-
-            var shouldShow = false;
-            if (isAssignedToMe) {
-              if (!myTasksAllDone) shouldShow = true; 
-            } else {
-              if (totalAssignedSlots > totalDoneSlots) shouldShow = true; 
-            }
-
-            if (!shouldShow) return; 
-            activeCount++;
-            validDutiesToDisplay.push(d);
-
-            var camHtml = ''; 
-            var editHtml = '';
+        d.personnelStatus.forEach(function(p) {
+          if (p.memberName) {
+            totalAssignedSlots++;
+            if (p.hasCheckedIn) totalDoneSlots++;
             
-            d.personnelStatus.forEach(function(p) {
-              if(p.roleLabel.indexOf("拍攝") !== -1) {
-                if(p.memberName === curUserName && !p.hasCheckedIn) {
-                  camHtml += `<div class="mb-1">${escapeHtml(p.roleLabel)}: <strong>${escapeHtml(p.memberName)}</strong> <button id="cam-btn-${idx}" class="btn btn-success btn-xs py-0 px-2 small ms-1" onclick="handleCheckInButtonClick('${escapeHtml(d.activityName)}','${escapeHtml(d.date)}',${idx})">簽到</button></div>`;
-                } else {
-                  camHtml += `<div class="mb-1 text-muted">${escapeHtml(p.roleLabel)}: <strong class="text-dark">${escapeHtml(p.memberName)}</strong> ${p.hasCheckedIn?'<span class="text-success small fw-bold">(在場)</span>':'<span class="text-danger small">(未到)</span>'}</div>`;
-                }
-              } else if(p.roleLabel.indexOf("剪輯") !== -1) {
-                if(p.memberName === curUserName && !p.hasCheckedIn) {
-                  editHtml += `<div><strong>${escapeHtml(p.memberName)}</strong> <button id="edit-btn-${idx}" class="btn btn-primary btn-xs py-0 px-2 small ms-1" onclick="handleEditorComplete('${escapeHtml(d.activityName)}','${escapeHtml(d.date)}',${idx})">回報完成</button></div>`;
-                } else {
-                  editHtml += `<div class="text-muted"><strong class="text-dark">${escapeHtml(p.memberName)}</strong> ${p.hasCheckedIn?'<span class="text-primary small fw-bold">(已完成)</span>':'<span class="text-danger small">(待剪輯)</span>'}</div>`;
-                }
+            if (p.memberName === curUserName) {
+              isAssignedToMe = true;
+              // 【修正重點】：如果我自己負責的其中任意一個崗位還沒 Check-in，那我的任務就還沒算全完工！
+              if (!p.hasCheckedIn) {
+                myTasksAllDone = false;
               }
-            });
-
-            var tr = document.createElement('tr');
-            tr.innerHTML = `<td><strong>${escapeHtml(d.date)}</strong><br><small class="text-muted">${escapeHtml(d.time)}</small></td>
-                            <td class="fw-bold text-dark text-start">${escapeHtml(d.activityName)}</td>
-                            <td>${escapeHtml(d.leader)}</td>
-                            <td class="text-start">${camHtml||'-'}</td>
-                            <td>${editHtml||'-'}</td>
-                            <td><button class="btn btn-outline-info btn-sm px-2 py-1" onclick="openViewStatusModal(${idx})">追蹤</button></td>`;
-            tbody.appendChild(tr);
-          });
-
-          // 渲染手機端卡片清單
-          renderDutyMobileList(validDutiesToDisplay, curUserName);
-
-          if (activeCount === 0) {
-            tbody.innerHTML = '<tr><td colspan="6" class="text-success fw-bold py-3"><i class="fa-solid fa-circle-check me-2"></i>恭喜！目前指派給您的任務已全部安全完工！</td></tr>';
+            }
           }
-        })
-        .catch(function(err) {
-           document.getElementById('duty-tbody').innerHTML = '<tr><td colspan="6" class="text-danger py-3">排班表載入失敗: ' + err.message + '</td></tr>';
         });
-    }
+
+        // 決定這張卡片/這一列是否該在畫面上呈現
+        var shouldShow = false;
+        if (isAssignedToMe) {
+          // 如果指派給我，且我還沒把所有崗位（拍攝簽到、剪輯完成）全部按完，就要繼續顯示
+          if (!myTasksAllDone) shouldShow = true; 
+        } else {
+          // 如果跟我無關，但該活動還有人沒完成，依然顯示
+          if (totalAssignedSlots > totalDoneSlots) shouldShow = true; 
+        }
+
+        if (!shouldShow) return; 
+        activeCount++;
+        validDutiesToDisplay.push(d);
+
+        var camHtml = ''; 
+        var editHtml = '';
+        
+        d.personnelStatus.forEach(function(p) {
+          if(p.roleLabel.indexOf("拍攝") !== -1) {
+            // 獨立判斷：僅在「拍攝崗位」且名字是我、尚未簽到時顯示簽到按鈕
+            if(p.memberName === curUserName && !p.hasCheckedIn) {
+              camHtml += `<div class="mb-1">${escapeHtml(p.roleLabel)}: <strong>${escapeHtml(p.memberName)}</strong> <button id="cam-btn-${idx}" class="btn btn-success btn-xs py-0 px-2 small ms-1" onclick="handleCheckInButtonClick('${escapeHtml(d.activityName)}','${escapeHtml(d.date)}',${idx})">簽到</button></div>`;
+            } else {
+              camHtml += `<div class="mb-1 text-muted">${escapeHtml(p.roleLabel)}: <strong class="text-dark">${escapeHtml(p.memberName)}</strong> ${p.hasCheckedIn?'<span class="text-success small fw-bold">(在場)</span>':'<span class="text-danger small">(未到)</span>'}</div>`;
+            }
+          } else if(p.roleLabel.indexOf("剪輯") !== -1) {
+            // 獨立判斷：僅在「剪輯崗位」且名字是我、尚未完成時顯示完成按鈕
+            if(p.memberName === curUserName && !p.hasCheckedIn) {
+              editHtml += `<div><strong>${escapeHtml(p.memberName)}</strong> <button id="edit-btn-${idx}" class="btn btn-primary btn-xs py-0 px-2 small ms-1" onclick="handleEditorComplete('${escapeHtml(d.activityName)}','${escapeHtml(d.date)}',${idx})">回報完成</button></div>`;
+            } else {
+              editHtml += `<div class="text-muted"><strong class="text-dark">${escapeHtml(p.memberName)}</strong> ${p.hasCheckedIn?'<span class="text-primary small fw-bold">(已完成)</span>':'<span class="text-danger small">(待剪輯)</span>'}</div>`;
+            }
+          }
+        });
+
+        var tr = document.createElement('tr');
+        tr.innerHTML = `<td><strong>${escapeHtml(d.date)}</strong><br><small class="text-muted">${escapeHtml(d.time)}</small></td>
+                        <td class="fw-bold text-dark text-start">${escapeHtml(d.activityName)}</td>
+                        <td>${escapeHtml(d.leader)}</td>
+                        <td class="text-start">${camHtml||'-'}</td>
+                        <td>${editHtml||'-'}</td>
+                        <td><button class="btn btn-outline-info btn-sm px-2 py-1" onclick="openViewStatusModal(${idx})">追蹤</button></td>`;
+        tbody.appendChild(tr);
+      });
+
+      // 渲染手機端卡片清單
+      renderDutyMobileList(validDutiesToDisplay, curUserName);
+
+      if (activeCount === 0) {
+        tbody.innerHTML = '<tr><td colspan="6" class="text-success fw-bold py-3"><i class="fa-solid fa-circle-check me-2"></i>恭喜！目前指派給您的任務已全部安全完工！</td></tr>';
+      }
+    })
+    .catch(function(err) {
+       document.getElementById('duty-tbody').innerHTML = '<tr><td colspan="6" class="text-danger py-3">排班表載入失敗: ' + err.message + '</td></tr>';
+    });
+}
 
     function loadDutyDataAdmin() {
       callGAS('getActivityDuties', {}, 'GET')
