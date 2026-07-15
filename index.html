@@ -2036,101 +2036,86 @@
     function handleLeaveSubmit(e) {
       e.preventDefault();
       if (!loggedInUserSession) {
-        alert("請先返回首頁登入您的個人帳號！");
-        switchView('login-view');
+        alert("請先完成安全帳號登入！");
         return;
       }
-
-      var reasonVal = document.getElementById('leave-reason').value.trim();
-      var typeVal = document.getElementById('leave-type').value;
-
-      if (!typeVal) {
-        alert("請務必選擇請假種類！");
+      
+      var leaveType = document.getElementById('leave-type').value;
+      var reason = document.getElementById('leave-reason').value.trim();
+      
+      if (!leaveType) {
+        alert("請選擇請假假別類型！");
         return;
       }
-      if (!reasonVal) {
-        alert("請詳細填寫請假理由與事由說明！");
-        return;
-      }
-
+      
       var payload = {
         studentId: loggedInUserSession.studentId,
         name: loggedInUserSession.name,
-        className: loggedInUserSession.className || "",
-        leaveType: typeVal,
-        reason: reasonVal
+        className: loggedInUserSession.className,
+        leaveType: leaveType,
+        reason: reason
       };
-
+      
       showLoading(true);
       callGAS('submitLeaveRequest', payload)
         .then(function(res) {
           showLoading(false);
           alert(res.message);
           if (res.success) {
-            document.getElementById('leave-reason').value = '';
-            document.getElementById('leave-type').value = '';
-            switchView('member-dashboard-view');
+            document.getElementById('leave-form').reset();
+            // 還原自動帶入的數據
+            document.getElementById('leave-name').value = loggedInUserSession.name;
+            document.getElementById('leave-class-id').value = (loggedInUserSession.className || "") + " / " + loggedInUserSession.studentId;
           }
         })
         .catch(function(err) {
           showLoading(false);
-          alert("提交請假失敗：" + err.message);
+          alert("送出請假失敗，請重新嘗試：" + err.message);
         });
     }
 
     function loadAdminLeaveRequests() {
-      var body = document.getElementById('admin-leave-list-body');
-      if (!body) return;
-
-      body.innerHTML = `
-        <tr>
-          <td colspan="7" class="text-center text-muted py-4">
-            <div class="spinner-border spinner-border-sm text-secondary me-2" role="status"></div>
-            正在加載未批准請假表單中...
-          </td>
-        </tr>
-      `;
-
+      var tbody = document.getElementById('admin-leave-list-body');
+      if (!tbody) return;
+      
       callGAS('getPendingLeaves', {}, 'GET')
-        .then(function(list) {
-          body.innerHTML = '';
-          if (!list || list.length === 0) {
-            body.innerHTML = `
-              <tr>
-                <td colspan="7" class="text-center text-success py-4">
-                  <i class="fa-solid fa-square-check me-2 fs-5"></i>目前尚無任何等待審批的請假申請。
-                </td>
-              </tr>
-            `;
+        .then(function(leaves) {
+          tbody.innerHTML = '';
+          if (!leaves || leaves.length === 0) {
+            tbody.innerHTML = '<tr><td colspan="7" class="text-center text-muted py-3">目前尚無任何請假歷史紀錄。</td></tr>';
             return;
           }
-
-          list.forEach(function(item) {
+          
+          // 後端 getPendingLeaves 已經完成 .reverse()，此處直接正向列印，就是「最新最上層」
+          leaves.forEach(function(item) {
             var tr = document.createElement('tr');
+            
+            // 【修復問題1】 根據 status 來動態渲染狀態欄
+            var statusBadge = '';
+            var actionBtn = '';
+            
+            if (item.status === 'approved') {
+              statusBadge = '<span class="badge bg-success"><i class="fa-solid fa-circle-check me-1"></i>已批准</span>';
+              actionBtn = '<button class="btn btn-secondary btn-xs" disabled>無須處理</button>';
+            } else {
+              statusBadge = '<span class="badge bg-warning text-dark animate-pulse"><i class="fa-solid fa-circle-notch fa-spin me-1"></i>審核中</span>';
+              actionBtn = `<button class="btn btn-success btn-xs" onclick="handleApproveLeaveDirectly('${escapeHtml(item.leaveId)}', '${escapeHtml(item.studentId)}')"><i class="fa-solid fa-check me-1"></i>批准</button>`;
+            }
+            
             tr.innerHTML = `
-              <td class="text-muted small">${escapeHtml(item.timestamp)}</td>
-              <td class="fw-bold">${escapeHtml(item.name)}</td>
-              <td><span class="badge bg-light text-dark px-2">${escapeHtml(item.className)}</span></td>
-              <td><span class="badge ${item.leaveType === '病假' ? 'bg-danger' : 'bg-warning text-dark'}">${escapeHtml(item.leaveType)}</span></td>
-              <td class="text-start">${escapeHtml(item.reason)}</td>
-              <td class="text-center"><span class="badge bg-secondary">審核中</span></td>
-              <td class="text-center">
-                <button class="btn btn-success btn-xs px-2 py-1 fw-bold" onclick="approveLeave('${item.leaveId}', '${item.studentId}')">
-                  批准
-                </button>
-              </td>
+              <td><span class="text-secondary">${escapeHtml(item.timestamp || '')}</span></td>
+              <td><strong>${escapeHtml(item.name || '')}</strong></td>
+              <td><span class="badge bg-light text-dark">${escapeHtml(item.className || '')}</span><br><small class="text-muted">${escapeHtml(item.studentId || '')}</small></td>
+              <td><span class="badge bg-outline-warning text-warning border border-warning">${escapeHtml(item.leaveType || '')}</span></td>
+              <td><div class="text-wrap" style="max-width: 220px;">${escapeHtml(item.reason || '')}</div></td>
+              <td class="text-center">${statusBadge}</td>
+              <td class="text-center">${actionBtn}</td>
             `;
-            body.appendChild(tr);
+            tbody.appendChild(tr);
           });
         })
         .catch(function(err) {
-          body.innerHTML = `
-            <tr>
-              <td colspan="7" class="text-center text-danger py-4">
-                加載失敗: ${err.message}
-              </td>
-            </tr>
-          `;
+          tbody.innerHTML = '<tr><td colspan="7" class="text-center text-danger py-3">讀取請假列表異常: ' + err.message + '</td></tr>';
         });
     }
 
@@ -2152,31 +2137,51 @@
         });
     }
 
-    function checkPendingLeavesForAdmin() {
+   function checkPendingLeavesForAdmin() {
       if (!loggedInUserSession || loggedInUserSession.role !== 'admin') return;
+      
       callGAS('getPendingLeaves', {}, 'GET')
-        .then(function(list) {
-          if (list && list.length > 0) {
+        .then(function(leaves) {
+          // 在所有請假單中過濾出 status 為 "pending" 狀態的
+          var pendings = leaves.filter(function(item) { return item.status === 'pending'; });
+          if (pendings.length > 0) {
+            // 取最新的一筆 pending 來通知
+            var newest = pendings[0]; 
+            var toastText = document.getElementById('leave-toast-text');
+            toastText.innerHTML = `🔔 <strong>${escapeHtml(newest.name)} (${escapeHtml(newest.className)})</strong> 提出 <strong>${escapeHtml(newest.leaveType)}</strong> 申請。<br><span class="text-muted">原因：${escapeHtml(newest.reason)}</span>`;
+            
+            // 【修復問題2】動態為核准批准按鈕綁定正確的點擊事件，不遺失參數
+            var approveBtn = document.getElementById('leave-toast-btn');
+            approveBtn.onclick = function() {
+              handleApproveLeaveDirectly(newest.leaveId, newest.studentId);
+            };
+            
             var toastEl = document.getElementById('leaveToast');
-            if (toastEl) {
-              var toastText = document.getElementById('leave-toast-text');
-              var first = list[0];
-              toastText.innerHTML = `📺 <strong>${escapeHtml(first.name)}</strong> (${escapeHtml(first.className)}) 提交了 <strong>${escapeHtml(first.leaveType)}</strong> 申請：<br><span class="text-muted">「${escapeHtml(first.reason)}」</span>`;
-              
-              var toastBtn = document.getElementById('leave-toast-btn');
-              toastBtn.onclick = function() {
-                approveLeave(first.leaveId, first.studentId);
-                var bootstrapToast = bootstrap.Toast.getInstance(toastEl);
-                if (bootstrapToast) bootstrapToast.hide();
-              };
-              
-              var bootstrapToast = bootstrap.Toast.getOrCreateInstance(toastEl);
-              bootstrapToast.show();
-            }
+            var toast = bootstrap.Toast.getOrCreateInstance(toastEl);
+            toast.show();
           }
         })
+        .catch(function(e) { console.error("實時請假檢查錯誤: ", e); });
+    }
+    
+    function handleApproveLeaveDirectly(leaveId, studentId) {
+      showLoading(true);
+      // 隱藏 Toast
+      var toastEl = document.getElementById('leaveToast');
+      var toast = bootstrap.Toast.getOrCreateInstance(toastEl);
+      toast.hide();
+
+      callGAS('approveLeaveRequest', { leaveId: leaveId, studentId: studentId })
+        .then(function(res) {
+          showLoading(false);
+          alert(res.message);
+          // 重新載入請假審核清單與排班，同步數據
+          loadAdminLeaveRequests();
+          if (typeof refreshUserProfileAndDuty === 'function') refreshUserProfileAndDuty();
+        })
         .catch(function(err) {
-          console.error("即時請假輪詢出錯: " + err.message);
+          showLoading(false);
+          alert("核准請假出錯: " + err.message);
         });
     }
 
