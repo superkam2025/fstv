@@ -570,15 +570,28 @@
       </div>
     </div>
 
-    <!-- 區塊七：成員線上請假 -->
-    <div id="leave-view" class="view-section">
-      <div class="row justify-content-center">
-        <div class="col-12 col-md-8">
-          <div class="card-modern p-4 p-md-5">
-            <h4 class="fw-bold text-dark mb-4"><i class="fa-solid fa-user-clock me-2 text-warning"></i>隊員線上請假申請單</h4>
-            <div id="leave-auth-alert" class="alert alert-warning"><i class="fa-solid fa-triangle-exclamation me-2"></i>請先登入帳號，系統會自動綁定您的班級學號與姓名。</div>
-            
-            <form id="leave-form" onsubmit="handleLeaveSubmit(event)" style="display:none;">
+  <!-- 區塊七：成員線上請假 -->
+  <div id="leave-view" class="view-section">
+    <div class="row justify-content-center">
+      <!-- 當為一般隊員或未登入時，寬度維持 col-md-8；管理員查看表格時，自動拓寬至 col-md-11 以利閱讀 -->
+      <div id="leave-card-container" class="col-12 col-md-8 transition-all">
+        <div class="card-modern p-4 p-md-5">
+          
+          <!-- ========================================== -->
+          <!-- 🔓 未登入狀態提示 -->
+          <!-- ========================================== -->
+          <div id="leave-auth-alert" class="alert alert-warning">
+            <i class="fa-solid fa-triangle-exclamation me-2"></i>請先登入帳號，系統會自動綁定您的班級學號與姓名。
+          </div>
+  
+          <!-- ========================================== -->
+          <!-- 👤 1. 一般隊員介面：線上請假表單 -->
+          <!-- ========================================== -->
+          <div id="leave-apply-section" style="display:none;">
+            <h4 class="fw-bold text-dark mb-4">
+              <i class="fa-solid fa-user-clock me-2 text-warning"></i>隊員線上請假申請單
+            </h4>
+            <form id="leave-form" onsubmit="handleLeaveSubmit(event)">
               <div class="row g-3">
                 <div class="col-12 col-md-6">
                   <label class="form-label small fw-bold text-secondary">姓名</label>
@@ -604,6 +617,45 @@
               <button type="submit" class="btn btn-warning w-100 mt-4 py-3 text-dark fw-bold shadow-sm">提交請假單給管理員</button>
             </form>
           </div>
+  
+          <!-- ========================================== -->
+          <!-- 🔑 2. 管理員介面：成員請假狀況與審批中心 -->
+          <!-- ========================================== -->
+          <div id="leave-admin-section" style="display:none;">
+            <div class="d-flex flex-column flex-md-row justify-content-between align-items-md-center mb-4 gap-3">
+              <h4 class="fw-bold text-dark m-0">
+                <i class="fa-solid fa-clipboard-list me-2 text-primary"></i>全體成員請假狀況與審批
+              </h4>
+              <button class="btn btn-sm btn-outline-secondary rounded-pill px-3" onclick="loadAdminLeaveRequests()">
+                <i class="fa-solid fa-rotate me-1"></i> 重新整理
+              </button>
+            </div>
+            
+            <div class="table-responsive">
+              <table class="table table-hover align-middle" style="min-width: 700px;">
+                <thead class="table-light text-secondary small">
+                  <tr>
+                    <th scope="col" style="width: 15%;">申請時間</th>
+                    <th scope="col" style="width: 15%;">姓名</th>
+                    <th scope="col" style="width: 20%;">班級學號</th>
+                    <th scope="col" style="width: 10%;">假別</th>
+                    <th scope="col" style="width: 20%;">事由</th>
+                    <th scope="col" class="text-center" style="width: 10%;">狀態</th>
+                    <th scope="col" class="text-center" style="width: 10%;">操作</th>
+                  </tr>
+                </thead>
+                <tbody id="admin-leave-list-body" class="small">
+                  <tr>
+                    <td colspan="7" class="text-center text-muted py-4">
+                      <div class="spinner-border spinner-border-sm text-secondary me-2" role="status"></div>
+                      請假紀錄同步中...
+                    </td>
+                  </tr>
+                </tbody>
+              </table>
+            </div>
+          </div>
+  
         </div>
       </div>
     </div>
@@ -2122,7 +2174,135 @@
           console.error("預加載管理員調度下拉選單名冊失敗: " + err.message);
         });
     }
-
+    function loadAdminLeaveRequests() {
+      const tbody = document.getElementById('admin-leave-list-body');
+      tbody.innerHTML = `
+        <tr>
+          <td colspan="7" class="text-center text-muted py-4">
+            <div class="spinner-border spinner-border-sm text-primary me-2" role="status"></div>
+            正從雲端資料庫同步請假數據...
+          </td>
+        </tr>
+      `;
+    
+      // 向後端請求請假單數據 (此處調用您原本獲取請假列表的 GAS 函數，例如 'getLeaveRequests')
+      callGAS('getLeaveRequests') 
+        .then(function(res) {
+          if (!res.success || !res.data || res.data.length === 0) {
+            tbody.innerHTML = `<tr><td colspan="7" class="text-center text-muted py-4">目前尚無任何請假申請紀錄。</td></tr>`;
+            return;
+          }
+          
+          let html = '';
+          // 反向迴圈，讓最新的請假申請排在最上面
+          for (let i = res.data.length - 1; i >= 0; i--) {
+            const item = res.data[i]; // item 結構預期: [id, timestamp, studentId, name, class, type, reason, status]
+            const id = item[0];
+            const timestamp = item[1] ? new Date(item[1]).toLocaleString() : '--';
+            const studentId = item[2];
+            const name = item[3];
+            const className = item[4];
+            const type = item[5];
+            const reason = item[6];
+            const status = item[7] || 'pending';
+    
+            // 狀態 Badge 樣式
+            let statusBadge = '';
+            let actionBtn = '';
+            if (status === 'pending') {
+              statusBadge = '<span class="badge bg-warning text-dark">待審核</span>';
+              actionBtn = `
+                <button class="btn btn-sm btn-success fw-bold me-1" onclick="handleApproveLeave('${id}', '${studentId}')">
+                  <i class="fa-solid fa-check me-1"></i>批准
+                </button>
+                <button class="btn btn-sm btn-outline-danger fw-bold" onclick="handleRejectLeave('${id}')">
+                  拒絕
+                </button>
+              `;
+            } else if (status === 'approved') {
+              statusBadge = '<span class="badge bg-success">已批准</span>';
+              actionBtn = '<span class="text-success small"><i class="fa-solid fa-circle-check"></i> 審查完成</span>';
+            } else {
+              statusBadge = '<span class="badge bg-secondary">已拒絕</span>';
+              actionBtn = '<span class="text-muted small">不予准假</span>';
+            }
+    
+            html += `
+              <tr>
+                <td class="small text-muted">${timestamp}</td>
+                <td class="fw-bold text-dark">${name}</td>
+                <td class="small text-secondary">${className} / ${studentId}</td>
+                <td><span class="badge bg-light text-dark border">${type}</span></td>
+                <td class="text-wrap small" style="max-width: 250px;">${reason}</td>
+                <td class="text-center">${statusBadge}</td>
+                <td class="text-center">${actionBtn}</td>
+              </tr>
+            `;
+          }
+          tbody.innerHTML = html;
+        })
+        .catch(function(err) {
+          tbody.innerHTML = `<tr><td colspan="7" class="text-center text-danger py-4">載入失敗: ${err.message}</td></tr>`;
+        });
+    }
+    
+    function handleApproveLeave(leaveId, studentId) {
+      if (!confirm("確定要批准此項請假申請，並登記扣勤與時間軸嗎？")) return;
+      
+      showLoading(true);
+      callGAS('approveLeaveRequest', leaveId, studentId)
+        .then(function(res) {
+          showLoading(false);
+          alert(res.message);
+          loadAdminLeaveRequests(); // 重新整理列表
+        })
+        .catch(function(err) {
+          showLoading(false);
+          alert("審批通訊出錯: " + err.message);
+        });
+    }
+    
+    function handleRejectLeave(leaveId) {
+      if (!confirm("確定要拒絕此請假申請嗎？")) return;
+      
+      showLoading(true);
+      callGAS('rejectLeaveRequest', leaveId) // 假設後端有拒絕函數
+        .then(function(res) {
+          showLoading(false);
+          alert(res.message || "已拒絕該請假申請");
+          loadAdminLeaveRequests(); 
+        })
+        .catch(function(err) {
+          showLoading(false);
+          alert("拒絕通訊出錯: " + err.message);
+        });
+    }
+    
+    function updateLeaveCenterUI() {
+      const leaveApplySection = document.getElementById('leave-apply-section');
+      const leaveAdminSection = document.getElementById('leave-admin-section');
+    
+      if (!loggedInUserSession) {
+        // 未登入狀態
+        leaveApplySection.style.display = 'block';
+        leaveAdminSection.style.display = 'none';
+        return;
+      }
+    
+      if (loggedInUserSession.role === 'admin') {
+        // 💡 管理員：隱藏申請單，展示全體請假狀況
+        leaveApplySection.style.display = 'none';
+        leaveAdminSection.style.display = 'block';
+        loadAdminLeaveRequests(); // 觸發載入資料
+      } else {
+        // 💡 一般成員：顯示申請單，填入預設資料
+        leaveApplySection.style.display = 'block';
+        leaveAdminSection.style.display = 'none';
+        
+        document.getElementById('leave-name').value = loggedInUserSession.name || '';
+        document.getElementById('leave-class-id').value = `${loggedInUserSession.className || ''} / ${loggedInUserSession.studentId || ''}`;
+      }
+    }
     window.addEventListener('DOMContentLoaded', (event) => {
       showLoading(false);
     });
