@@ -2279,30 +2279,41 @@
     }
     
     function updateLeaveCenterUI() {
-      const leaveApplySection = document.getElementById('leave-apply-section');
-      const leaveAdminSection = document.getElementById('leave-admin-section');
+  const authAlert = document.getElementById('leave-auth-alert');
+  const leaveApplySection = document.getElementById('leave-apply-section');
+  const leaveAdminSection = document.getElementById('leave-admin-section');
+  const cardContainer = document.getElementById('leave-card-container');
+
+  // 1. 未登入狀態
+  if (!loggedInUserSession) {
+    authAlert.style.display = 'block';
+    leaveApplySection.style.display = 'none';
+    leaveAdminSection.style.display = 'none';
+    cardContainer.className = "col-12 col-md-8"; // 窄版
+    return;
+  }
+
+  // 已登入，隱藏未登入提示
+  authAlert.style.display = 'none';
+
+  // 2. 管理員 (Admin) 登入
+  if (loggedInUserSession.role === 'admin') {
+    leaveApplySection.style.display = 'none';
+    leaveAdminSection.style.display = 'block';
+    cardContainer.className = "col-12 col-md-11"; // 拓寬卡片寬度方便管理員看表格
+    loadAdminLeaveRequests(); // 載入資料
+  } 
+  // 3. 一般隊員登入
+  else {
+    leaveApplySection.style.display = 'block';
+    leaveAdminSection.style.display = 'none';
+    cardContainer.className = "col-12 col-md-8"; // 窄版
     
-      if (!loggedInUserSession) {
-        // 未登入狀態
-        leaveApplySection.style.display = 'block';
-        leaveAdminSection.style.display = 'none';
-        return;
-      }
-    
-      if (loggedInUserSession.role === 'admin') {
-        // 💡 管理員：隱藏申請單，展示全體請假狀況
-        leaveApplySection.style.display = 'none';
-        leaveAdminSection.style.display = 'block';
-        loadAdminLeaveRequests(); // 觸發載入資料
-      } else {
-        // 💡 一般成員：顯示申請單，填入預設資料
-        leaveApplySection.style.display = 'block';
-        leaveAdminSection.style.display = 'none';
-        
-        document.getElementById('leave-name').value = loggedInUserSession.name || '';
-        document.getElementById('leave-class-id').value = `${loggedInUserSession.className || ''} / ${loggedInUserSession.studentId || ''}`;
-      }
-    }
+    // 自動帶入隊員基本資料
+    document.getElementById('leave-name').value = loggedInUserSession.name || '';
+    document.getElementById('leave-class-id').value = `${loggedInUserSession.className || ''} / ${loggedInUserSession.studentId || ''}`;
+  }
+}
     window.addEventListener('DOMContentLoaded', (event) => {
       showLoading(false);
     });
