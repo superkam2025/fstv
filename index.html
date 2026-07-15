@@ -1390,10 +1390,13 @@
             li.className = 'modal-timeline-item';
           }
           
-          // 乾淨的內容：移除了 [violation] 等標籤，僅留下日期、標題與描述
+         // 透過正規表達式過濾掉開頭的 [violation]、[award]、[normal] 等系統標籤
+          var cleanTitle = String(item.title || '')
+            .replace(/^\[(violation|award|normal)\]\s*/i, '');
+
           li.innerHTML = `
             <div class="modal-timeline-date">${escapeHtml(item.date || '')}</div>
-            <div class="fw-bold text-dark">${escapeHtml(item.title || '')}</div>
+            <div class="fw-bold text-dark">${escapeHtml(cleanTitle)}</div>
             <p class="text-muted small mb-0">${escapeHtml(item.desc || '')}</p>
           `;
           ul.appendChild(li);
