@@ -187,39 +187,56 @@
       transform: translateY(-3px);
     }
 
-    /* 完美流線時間軸（Timeline） */
+    /* --- 1. 定義顏色變數 (以防你原本沒定義) --- */
+    :root {
+      --accent-color: #0ea5e9;   /* 預設藍色 */
+      --warning-color: #f59e0b;  /* 警告黃色 */
+      --danger-color: #ef4444;   /* 違規紅色 */
+    }
+
+    /* --- 2. 時間軸外層容器，必須有一條左側的灰色軸線 --- */
     .modal-timeline-container {
-      list-style: none;
-      position: relative;
-      padding-left: 24px;
+      border-left: 2px solid #e2e8f0; /* 畫出時間軸的垂直灰線 */
+      padding-left: 24px;             /* 留出空間給圓點 */
+      margin-left: 10px;
     }
-    .modal-timeline-container::before {
-      content: '';
-      position: absolute;
-      left: 6px; top: 0; bottom: 0;
-      width: 2px; background: #e2e8f0;
-    }
+
+    /* --- 3. 時間軸單一項目 --- */
     .modal-timeline-item {
       position: relative;
       margin-bottom: 24px;
+      list-style-type: none; /* 移除預設的黑點 */
     }
+
+    /* --- 4. 圓點樣式 (加入了預設顏色作為後備) --- */
     .modal-timeline-item::before {
       content: '';
       position: absolute;
-      left: -23px; top: 6px;
+      /* 調整為 -31px 剛好可以精準壓在 .modal-timeline-container 的左軸線上 */
+      left: -31px; 
+      top: 6px;
       width: 12px; height: 12px;
-      border-radius: 50%; background: var(--accent-color);
+      border-radius: 50%; 
+      
+      /* var() 後方加入第二個參數作為「預設顏色後備」，避免變數失效時變透明 */
+      background: var(--accent-color, #0ea5e9); 
       border: 2px solid #fff;
       box-shadow: 0 0 0 3px rgba(14, 165, 233, 0.15);
+      z-index: 2; /* 確保圓點壓在軸線上方 */
     }
+
+    /* --- 🟡 榮譽/競賽點 --- */
     .modal-timeline-item.award::before {
-      background: var(--warning-color);
+      background: var(--warning-color, #f59e0b);
       box-shadow: 0 0 0 3px rgba(245, 158, 11, 0.15);
     }
+
+    /* --- 🔴 違規點 --- */
     .modal-timeline-item.violation::before {
-      background: var(--danger-color);
+      background: var(--danger-color, #ef4444);
       box-shadow: 0 0 0 3px rgba(239, 68, 68, 0.15);
     }
+
     .modal-timeline-date {
       font-size: 0.8rem;
       color: #94a3b8;
