@@ -659,7 +659,38 @@
       </div>
     </div>
   </div>
+  
+<!-- [器材借用成功彈出提示視窗] -->
+  <div class="modal fade" id="borrowAlertModal" data-bs-backdrop="static" tabindex="-1" aria-hidden="true">
+    <div class="modal-dialog modal-dialog-centered">
+      <div class="modal-content border-0 shadow-lg rounded-4">
+        <div class="modal-header bg-success text-white py-3 border-0">
+          <h5 class="modal-title fw-bold"><i class="fa-solid fa-bell me-2 animate-bounce"></i>系統即時提醒：器材出借成功</h5>
+          <button type="button" class="btn-close btn-close-white" data-bs-dismiss="modal" aria-label="Close"></button>
+        </div>
+        <div class="modal-body p-4 text-center">
+          <div class="text-success mb-3">
+            <i class="fa-solid fa-circle-check fa-4x"></i>
+          </div>
+          <h5 class="fw-bold text-dark mb-2">已成功完成器材借用登記！</h5>
+          <div class="card p-3 bg-light border-0 rounded-3 text-start mb-3 small">
+            <p class="mb-1"><strong>借用人：</strong><span id="popup-borrow-name">--</span></p>
+            <p class="mb-1"><strong>單位班級：</strong><span id="popup-borrow-class">--</span></p>
+            <p class="mb-1"><strong>出借器材：</strong><span id="popup-borrow-equip">--</span></p>
+            <p class="mb-1"><strong>預約時間：</strong><span id="popup-borrow-datetime">--</span></p>
+            <p class="mb-0"><strong>預計時長：</strong><span id="popup-borrow-duration">--</span> 小時</p>
+          </div>
+          <p class="text-muted small">借用資訊已實時寫入雲端試算表資料庫中。</p>
+        </div>
+        <div class="modal-footer bg-light border-0">
+          <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">關閉</button>
+          <button type="button" class="btn btn-success fw-bold" onclick="viewBorrowFromPopup()">前往查看借用歷史</button>
+        </div>
+      </div>
+    </div>
+  </div>
 
+  
   <!-- [管理員排班對話框] -->
   <div class="modal fade" id="dutyModal" data-bs-backdrop="static" tabindex="-1" aria-hidden="true">
     <div class="modal-dialog modal-dialog-centered">
@@ -1872,46 +1903,112 @@
       borrowModalObj.show();
     }
 
+    // 聲明器材借用彈窗變數
+    var borrowAlertModalObj = null;
+
+    function openBorrowModal() {
+      document.getElementById('borrow-form').reset();
+      document.getElementById('borrow-date').value = new Date().toISOString().split('T')[0];
+      
+      // 判斷是否已經登入綁定身分
+      if (loggedInUserSession) {
+        document.getElementById('borrow-member-block').style.display = 'block';
+        document.getElementById('borrow-guest-block').style.display = 'none';
+        document.getElementById('borrow-member-info').innerText = `${loggedInUserSession.name} (${loggedInUserSession.className || ''} / ${loggedInUserSession.studentId})`;
+      } else {
+        document.getElementById('borrow-member-block').style.display = 'none';
+        document.getElementById('borrow-guest-block').style.display = 'flex';
+        document.getElementById('borrow-name').setAttribute('required', 'true');
+        document.getElementById('borrow-class').setAttribute('required', 'true');
+        document.getElementById('borrow-phone').setAttribute('required', 'true');
+      }
+      
+      borrowModalObj = bootstrap.Modal.getOrCreateInstance(document.getElementById('borrowModal'));
+      borrowModalObj.show();
+    }
+
     function handleBorrowSubmit(e) {
       e.preventDefault();
       
-      var eqList = [];
+      // 收集設備名稱
+      var equipments = [];
       for (var i = 1; i <= 5; i++) {
-        var val = document.getElementById('borrow-eq-' + i).value;
-        if (val) eqList.push(val);
+        var eqVal = document.getElementById(`borrow-eq-${i}`).value;
+        if (eqVal) equipments.push(eqVal);
       }
-      if (eqList.length === 0) { alert("請至少選擇 1 件借用器材！"); return; }
-      var equipmentStr = eqList.join(' + ');
-
+      if (equipments.length === 0) {
+        alert("請至少選擇一件欲出借的器材設備！");
+        return;
+      }
+      
+      var nameVal = "", classVal = "", phoneVal = "", identityVal = "一般訪客/外部人員";
+      if (loggedInUserSession) {
+        nameVal = loggedInUserSession.name;
+        classVal = loggedInUserSession.className || "電視台成員";
+        phoneVal = loggedInUserSession.phone || "已綁定";
+        identityVal = loggedInUserSession.role === 'admin' ? '系統管理員' : '電視台隊員';
+      } else {
+        nameVal = document.getElementById('borrow-name').value.trim();
+        classVal = document.getElementById('borrow-class').value.trim();
+        phoneVal = document.getElementById('borrow-phone').value.trim();
+      }
+      
       var payload = {
-        identity: loggedInUserSession ? (loggedInUserSession.role === 'admin' ? "管理員" : "電視台成員") : "外部一般訪客",
-        name: loggedInUserSession ? loggedInUserSession.name : document.getElementById('borrow-name').value.trim(),
-        className: loggedInUserSession ? loggedInUserSession.className : document.getElementById('borrow-class').value.trim(),
-        phone: loggedInUserSession ? loggedInUserSession.phone : document.getElementById('borrow-phone').value.trim(),
-        equipment: equipmentStr,
+        identity: identityVal,
+        name: nameVal,
+        className: classVal,
+        phone: phoneVal,
+        equipment: equipments.join(", "),
         date: document.getElementById('borrow-date').value,
         time: document.getElementById('borrow-time').value,
-        duration: document.getElementById('borrow-duration').value + " 小時"
+        duration: document.getElementById('borrow-duration').value
       };
-
+      
       showLoading(true);
       borrowModalObj = bootstrap.Modal.getOrCreateInstance(document.getElementById('borrowModal'));
       borrowModalObj.hide();
-
+      
       callGAS('submitEquipmentBorrow', payload)
         .then(function(res) {
           showLoading(false);
-          alert(res.message);
           if (res.success) {
+            // 填寫提示視窗中的數據
+            document.getElementById('popup-borrow-name').innerText = payload.name;
+            document.getElementById('popup-borrow-class').innerText = payload.className;
+            document.getElementById('popup-borrow-equip').innerText = payload.equipment;
+            document.getElementById('popup-borrow-datetime').innerText = payload.date + " " + payload.time;
+            document.getElementById('popup-borrow-duration').innerText = payload.duration;
+            
+            // 彈出提示視窗
+            borrowAlertModalObj = bootstrap.Modal.getOrCreateInstance(document.getElementById('borrowAlertModal'));
+            borrowAlertModalObj.show();
+            
+            // 重新載入列表
             if (loggedInUserSession && loggedInUserSession.role === 'admin') {
               loadBorrowRecords();
             }
+          } else {
+            alert("登記失敗：" + res.message);
           }
         })
         .catch(function(err) {
           showLoading(false);
-          alert("器材出借申請失敗：" + err.message);
+          alert("登記通訊異常：" + err.message);
         });
+    }
+
+    // 彈出提示視窗中「前往查看借用歷史」按鈕的點擊函數
+    function viewBorrowFromPopup() {
+      if (borrowAlertModalObj) {
+        borrowAlertModalObj.hide();
+      }
+      
+      // 如果已登入為管理員，則切換至器材管理面板
+      if (loggedInUserSession && loggedInUserSession.role === 'admin') {
+        switchView('borrow-view');
+      } else {
+        alert("非管理員帳號，請聯絡電視台管理員於試算表中進行核備追蹤。");
+      }
     }
 
     function loadBorrowRecords() {
