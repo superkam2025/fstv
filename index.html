@@ -677,7 +677,7 @@
               <div class="col-3"><label class="form-label small fw-bold">開始時間</label><input type="time" id="duty-time-start" class="form-control" required></div>
               <div class="col-3"><label class="form-label small fw-bold">結束時間</label><input type="time" id="duty-time-end" class="form-control" required></div>
             </div>
-            <div class="mb-3"><label class="form-label small fw-bold">活動總負責人（通常為老師）</label><input type="text" id="duty-leader" class="form-control" placeholder="請輸入指導老師名字" required></div>
+            <div class="mb-3"><label class="form-label small fw-bold">活動總負責人（通常為組長）</label><input type="text" id="duty-leader" class="form-control" placeholder="請輸入指導老師名字" required></div>
             
             <div class="card p-3 bg-light border-0 rounded-3">
               <label class="form-label small fw-bold text-dark mb-2">調度電視台成員任務</label>
@@ -1334,15 +1334,17 @@
     // 儀表板與管理控制台 (Dashboard & Admin)
     // ==========================================
     function renderMemberProfile(data) {
+      // 1. 基本資料渲染
       document.getElementById('m-photo').src = data.photo || "https://via.placeholder.com/150";
-      document.getElementById('m-name').innerText = data.name; 
-      document.getElementById('m-id').innerText = data.studentId; 
-      document.getElementById('m-class').innerText = data.className;
+      document.getElementById('m-name').innerText = data.name || '無'; 
+      document.getElementById('m-id').innerText = data.studentId || '無'; 
+      document.getElementById('m-class').innerText = data.className || '無';
       document.getElementById('m-phone').innerText = data.phone || '無'; 
       document.getElementById('m-pname').innerText = data.parentName || '無'; 
       document.getElementById('m-prel').innerText = data.relationship || '無'; 
       document.getElementById('m-pphone').innerText = data.parentPhone || '無';
-
+    
+      // 2. 數據統計區塊
       var pf = data.portfolio || { learnHours: 0, activityHours: 0, contests: 0, skills: 0, late: 0, absent: 0, milestones: [] };
       document.getElementById('stat-learn').innerText = (pf.learnHours || 0) + ' 小時';
       document.getElementById('stat-activity').innerText = (pf.activityHours || 0) + ' 次';
@@ -1355,7 +1357,8 @@
       if (document.getElementById('stat-absent')) {
         document.getElementById('stat-absent').innerText = (pf.absent || 0) + ' 次';
       }
-
+    
+      // 3. 星等評分計算 (計算邏輯保持不變)
       var score = (pf.learnHours || 0) + (pf.activityHours || 0);
       var stars = score >= 150 ? 5 : (score >= 100 ? 4 : (score >= 50 ? 3 : (score >= 20 ? 2 : 1)));
       
@@ -1366,30 +1369,37 @@
           : '<i class="fa-solid fa-star text-muted me-1" style="color:#e2e8f0 !important;"></i>';
       }
       document.getElementById('p-stars').innerHTML = starHtml;
-
+    
+      // 4. 時間軸動態渲染
       var ul = document.getElementById('p-timeline'); 
       ul.innerHTML = '';
       
       if (pf.milestones && pf.milestones.length > 0) {
         pf.milestones.forEach(function(item) {
           var li = document.createElement('li'); 
-          if (item.type === 'award' || item.type.includes('競賽') || item.type.includes('award')) {
+          
+          // 安全獲取 type 字串，避免 null / undefined 造成 includes() 噴錯
+          var typeStr = String(item.type || '').toLowerCase();
+    
+          // 根據型態分類樣式 (獎勵/競賽 vs 違規)
+          if (typeStr.includes('award') || typeStr.includes('競賽')) {
             li.className = 'modal-timeline-item award';
-          } else if (item.type === 'violation' || item.type.includes('違規') || item.type.includes('violation')) {
+          } else if (typeStr.includes('violation') || typeStr.includes('違規')) {
             li.className = 'modal-timeline-item violation';
           } else {
             li.className = 'modal-timeline-item';
           }
           
+          // 乾淨的內容：移除了 [violation] 等標籤，僅留下日期、標題與描述
           li.innerHTML = `
-            <div class="modal-timeline-date">${escapeHtml(item.date)}</div>
-            <div class="fw-bold text-dark">${escapeHtml(item.title)}</div>
+            <div class="modal-timeline-date">${escapeHtml(item.date || '')}</div>
+            <div class="fw-bold text-dark">${escapeHtml(item.title || '')}</div>
             <p class="text-muted small mb-0">${escapeHtml(item.desc || '')}</p>
           `;
           ul.appendChild(li);
         });
       } else { 
-        ul.innerHTML = '<li class="text-muted small">目前尚無里程碑紀錄。</li>'; 
+        ul.innerHTML = '<li class="text-muted small p-3">目前尚無里程碑紀錄。</li>'; 
       }
     }
 
