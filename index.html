@@ -2149,7 +2149,15 @@
           alert("核准處理失敗: " + err.message);
         });
     }
-
+    // 假設這是您原本處理登入成功的函式
+    function handleLoginSuccess(userInfo) {
+      // 1. 將登入狀態與使用者資訊寫入瀏覽器快取
+      localStorage.setItem("isLoggedIn", "true");
+      localStorage.setItem("currentUser", JSON.stringify(userInfo)); // 儲存使用者物件
+      
+      // 2. 執行原本登入成功後的 UI 切換邏輯（例如顯示主畫面、隱藏登入頁）
+      showMainPage(userInfo);
+    }
     function checkPendingLeavesForAdmin() {
       if (!loggedInUserSession || loggedInUserSession.role !== 'admin') return;
       
@@ -2181,9 +2189,36 @@
           console.error("即時請假輪詢異常: " + err.message);
         });
     }
-
+    
+    // 綁定給登出按鈕的點擊事件
+    function handleLogout() {
+      // 1. 清除瀏覽器快取中的登入資訊
+      localStorage.removeItem("isLoggedIn");
+      localStorage.removeItem("currentUser");
+      
+      // 2. 如果您有使用其他快取，也可以一併清除： localStorage.clear();
+      
+      // 3. 顯示登入畫面
+      showLoginPage();
+    }
+    
     document.addEventListener("DOMContentLoaded", function() {
-      showLoading(false);
+      // 1. 檢查是否有登入紀錄
+      const isLoggedIn = localStorage.getItem("isLoggedIn");
+      const savedUser = localStorage.getItem("currentUser");
+      
+      if (isLoggedIn === "true" && savedUser) {
+        const userInfo = JSON.parse(savedUser);
+        
+        // 2. 如果已登入，直接載入主畫面與數據
+        showMainPage(userInfo); 
+        
+        // 如果需要從 Google 試算表同步最新數據，可在這裡調用
+        loadUserData(userInfo.userName); 
+      } else {
+        // 3. 若未登入，顯示登入畫面
+        showLoginPage();
+      }
     });
   </script>
 </body>
