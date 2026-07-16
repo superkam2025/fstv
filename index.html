@@ -1234,7 +1234,9 @@
         });
     }
 
+    /* 💡 修正後：刷新同步按鈕時完整顯示「系統數據傳輸中」遮罩並復原 */
     function refreshUserProfileAndDuty() {
+      showLoading(true); // 顯示遮罩
       if (loggedInUserSession) {
         callGAS('getUserProfile', { studentId: loggedInUserSession.studentId }, 'GET')
           .then(function(res) {
@@ -1243,19 +1245,22 @@
               renderMemberProfile(res.user); 
             }
             if (loggedInUserSession.role === 'admin') { 
-              loadAdminData(); 
-              loadDutyDataAdmin(); 
-              loadBorrowRecords(); 
+              Promise.all([loadAdminData(), loadDutyDataAdmin(), loadBorrowRecords()]).then(() => {
+                showLoading(false); // 所有資料同步完畢後關閉遮罩
+              });
             } else { 
               loadDutyDataMember(); 
+              showLoading(false);
             }
           })
           .catch(function(err) {
              console.error("同步使用者檔案失敗: " + err.message);
              loadDutyDataMember();
+             showLoading(false);
           });
       } else { 
         loadDutyDataMember(); 
+        showLoading(false);
       }
     }
 
@@ -1580,100 +1585,312 @@
         const card = document.createElement('div');
         card.className = 'card-modern p-3 mb-3';
         card.innerHTML = `
-          <div class="d-flex align-items-center gap-3 border-bottom pb-3 mb-3">
-            <img src="${m.photo || 'https://picsum.photos/150'}" class="table-img" onerror="this.src='https://picsum.photos/150';">
+          <div class="d-flex align-items-center mb-2">
+            <img src="${m.photo || 'https://picsum.photos/150'}" class="table-img me-3">
             <div>
               <h6 class="fw-bold text-dark mb-0">${escapeHtml(m.name)}</h6>
-              <small class="text-muted">學號: ${escapeHtml(m.studentId)} | 班級: ${escapeHtml(m.className)}</small>
+              <small class="text-muted">${escapeHtml(m.className)} / ${escapeHtml(m.studentId)}</small>
             </div>
           </div>
-          <div class="small mb-3">
-            <div><strong>聯絡電話：</strong>${escapeHtml(m.phone || '無')}</div>
-            <div><strong>緊急聯絡：</strong>${escapeHtml(m.parentName || '')} (${escapeHtml(m.relationship || '')}) / ${escapeHtml(m.parentPhone || '')}</div>
-          </div>
-          <div class="pt-2 border-top">${btnHtml}</div>
+          <div class="small mb-2"><strong>電話：</strong>${escapeHtml(m.phone)}</div>
+          <div class="small mb-3"><strong>家長：</strong>${escapeHtml(m.parentName)} (${escapeHtml(m.relationship)}) / ${escapeHtml(m.parentPhone)}</div>
+          <div>${btnHtml}</div>
         `;
         mobContainer.appendChild(card);
       });
     }
 
-    function loadAdminData() {
-      showLoading(true);
-      callGAS('getAllMembers', {}, 'GET')
-        .then(function(members) {
-          showLoading(false); 
-          allMembersCached = members; 
-          
-          var tbody = document.getElementById('admin-tbody'); 
+    /* 💡 修正後：重新整理/載入器材借用紀錄時，顯示「系統數據傳輸中」遮罩 */
+    function loadBorrowRecords() {
+      showLoading(true); // 顯示遮罩
+      callGAS('getBorrowRecords', {}, 'GET')
+        .then(function(records) {
+          showLoading(false); // 載入成功後關閉遮罩
+          var tbody = document.getElementById('borrowRecordsBody');
+          var mobContainer = document.getElementById('borrow-mobile-list');
           if (!tbody) return;
           tbody.innerHTML = '';
-          
-          if (Array.isArray(members)) {
-            members.forEach(function(m) {
-              var btn = '';
-              if (m.role === 'admin') {
-                btn = '<span class="badge bg-warning text-dark">管理員</span>';
-              } else if (m.role === 'pending') {
-                btn = `<button class="btn btn-success btn-sm w-100 mb-1" onclick="handleApprove('${m.studentId}')">通過</button>
-                       <button class="btn btn-danger btn-sm w-100" onclick="handleDelete('${m.studentId}')">拒絕</button>`;
-              } else {
-                btn = `<span class="badge bg-success mb-1">已通過</span><br>
-                       <button class="btn btn-primary btn-sm mb-1 w-100" onclick="openPortfolioModal('${m.studentId}')"><i class="fa-solid fa-user-pen me-1"></i>學能檔案</button>
-                       <button class="btn btn-outline-danger btn-xs w-100" onclick="handleDelete('${m.studentId}')">刪除</button>`;
-              }
-              
-              var tr = document.createElement('tr');
-              tr.innerHTML = `
-                <td><img src="${m.photo || 'https://picsum.photos/150'}" class="table-img" onerror="this.src='https://picsum.photos/150';"></td>
-                <td><strong>${escapeHtml(m.studentId)}</strong></td>
-                <td><strong>${escapeHtml(m.name)}</strong></td>
-                <td><span class="badge bg-light text-dark px-2 py-1">${escapeHtml(m.className)}</span></td>
-                <td>${escapeHtml(m.phone || '無')}</td>
-                <td class="text-start small">
-                  <strong>家長：</strong>${escapeHtml(m.parentName || '')} (${escapeHtml(m.relationship || '')})<br>
-                  <strong>電話：</strong>${escapeHtml(m.parentPhone || '')}
-                </td>
-                <td>${btn}</td>
+          if (mobContainer) mobContainer.innerHTML = '';
+
+          if (!records || records.length === 0) {
+            tbody.innerHTML = '<tr><td colspan="8" class="text-center text-muted">無借用紀錄</td></tr>';
+            if (mobContainer) mobContainer.innerHTML = '<div class="text-center text-muted py-3">無借用紀錄</div>';
+            return;
+          }
+
+          records.reverse().forEach(function(r) {
+            var tr = document.createElement('tr');
+            tr.innerHTML = `
+              <td>${escapeHtml(r.timestamp)}</td>
+              <td>${escapeHtml(r.identity)}</td>
+              <td>${escapeHtml(r.name)}</td>
+              <td>${escapeHtml(r.className)}</td>
+              <td>${escapeHtml(r.phone)}</td>
+              <td>${escapeHtml(r.equipment)}</td>
+              <td>${escapeHtml(r.date)} ${escapeHtml(r.time)}</td>
+              <td>${escapeHtml(r.duration)} 小時</td>
+            `;
+            tbody.appendChild(tr);
+
+            if (mobContainer) {
+              var card = document.createElement('div');
+              card.className = 'card-modern p-3 mb-2';
+              card.innerHTML = `
+                <div class="d-flex justify-content-between align-items-start border-bottom pb-2 mb-2">
+                  <div>
+                    <h6 class="fw-bold text-dark mb-0">${escapeHtml(r.name)} (${escapeHtml(r.identity)})</h6>
+                    <small class="text-muted">${escapeHtml(r.className)}</small>
+                  </div>
+                  <span class="badge bg-light text-secondary">${escapeHtml(r.duration)}小時</span>
+                </div>
+                <p class="small mb-1"><strong>設備：</strong>${escapeHtml(r.equipment)}</p>
+                <p class="small mb-1"><strong>預約時間：</strong>${escapeHtml(r.date)} ${escapeHtml(r.time)}</p>
+                <p class="small mb-0 text-muted">登記時間: ${escapeHtml(r.timestamp)}</p>
               `;
-              tbody.appendChild(tr);
-            });
-            renderAdminMobileList(members);
+              mobContainer.appendChild(card);
+            }
+          });
+        })
+        .catch(function(err) {
+          showLoading(false); // 錯誤時也要關閉遮罩
+          console.error("載入器材紀錄失敗:", err);
+        });
+    }
+
+    /* 💡 修正後：重新整理請假列表時，顯示「系統數據傳輸中」遮罩 */
+    function loadAdminLeaveRequests() {
+      showLoading(true); // 顯示遮罩
+      callGAS('getPendingLeaves', {}, 'GET')
+        .then(function(list) {
+          showLoading(false); // 載入成功後關閉遮罩
+          var tbody = document.getElementById('admin-leave-list-body');
+          var mobContainer = document.getElementById('leave-mobile-list');
+          if (!tbody) return;
+          tbody.innerHTML = '';
+          if (mobContainer) mobContainer.innerHTML = '';
+
+          if (!list || list.length === 0) {
+            tbody.innerHTML = '<tr><td colspan="7" class="text-center text-muted py-3">目前尚無請假申請資料。</td></tr>';
+            if (mobContainer) mobContainer.innerHTML = '<div class="text-center text-muted py-3">目前尚無請假申請。</div>';
+            return;
+          }
+
+          list.forEach(function(item) {
+            var badgeColor = item.status === 'pending' ? 'warning' : 'success';
+            var statusText = item.status === 'pending' ? '待審核' : '已批准';
+            var btnHtml = item.status === 'pending' 
+              ? `<button class="btn btn-success btn-xs" onclick="handleApproveLeave('${item.leaveId}', '${item.studentId}')">批准</button>` 
+              : `<span class="text-muted small">無可執行操作</span>`;
+
+            var tr = document.createElement('tr');
+            tr.innerHTML = `
+              <td>${escapeHtml(item.timestamp)}</td>
+              <td class="fw-bold text-dark">${escapeHtml(item.name)}</td>
+              <td>${escapeHtml(item.className)} / ${escapeHtml(item.studentId)}</td>
+              <td><span class="badge bg-secondary">${escapeHtml(item.leaveType)}</span></td>
+              <td>${escapeHtml(item.reason)}</td>
+              <td class="text-center"><span class="badge bg-${badgeColor}">${statusText}</span></td>
+              <td class="text-center">${btnHtml}</td>
+            `;
+            tbody.appendChild(tr);
+
+            if (mobContainer) {
+              var card = document.createElement('div');
+              card.className = 'card-modern p-3 mb-2';
+              card.innerHTML = `
+                <div class="d-flex justify-content-between align-items-start border-bottom pb-2 mb-2">
+                  <div>
+                    <h6 class="fw-bold text-dark mb-0">${escapeHtml(item.name)} <span class="badge bg-secondary small">${escapeHtml(item.leaveType)}</span></h6>
+                    <small class="text-muted">${escapeHtml(item.className)} / ${escapeHtml(item.studentId)}</small>
+                  </div>
+                  <span class="badge bg-${badgeColor}">${statusText}</span>
+                </div>
+                <p class="small mb-2"><strong>理由：</strong>${escapeHtml(item.reason)}</p>
+                <div class="d-flex justify-content-between align-items-center">
+                  <span class="small text-muted">${escapeHtml(item.timestamp)}</span>
+                  ${item.status === 'pending' ? `<button class="btn btn-success btn-xs" onclick="handleApproveLeave('${item.leaveId}', '${item.studentId}')">批准</button>` : ''}
+                </div>
+              `;
+              mobContainer.appendChild(card);
+            }
+          });
+        })
+        .catch(function(err) {
+          showLoading(false); // 錯誤時關閉遮罩
+          console.error("載入請假紀錄失敗:", err);
+        });
+    }
+
+    function loadAdminData() {
+      return callGAS('getAllMembers', {}, 'GET')
+        .then(function(members) {
+          allMembersCached = members;
+          var tbody = document.getElementById('admin-tbody'); 
+          tbody.innerHTML = '';
+          
+          if (!members || members.length === 0) { 
+            tbody.innerHTML = '<tr><td colspan="7" class="text-muted py-3">資料庫中查無成員。</td></tr>'; 
+            renderAdminMobileList([]);
+            return; 
+          }
+          
+          members.forEach(function(m) {
+            var btnHtml = '';
+            if (m.role === 'admin') {
+              btnHtml = '<span class="badge bg-warning text-dark">管理員</span>';
+            } else if (m.role === 'pending') {
+              btnHtml = `<button class="btn btn-success btn-xs me-1" onclick="handleApprove('${m.studentId}')">審查通過</button><button class="btn btn-danger btn-xs" onclick="handleDelete('${m.studentId}')">拒絕</button>`;
+            } else {
+              btnHtml = `<button class="btn btn-primary btn-xs me-1" onclick="openPortfolioModal('${m.studentId}')"><i class="fa-solid fa-user-pen me-1"></i>核實檔案</button><button class="btn btn-outline-danger btn-xs" onclick="handleDelete('${m.studentId}')">刪除</button>`;
+            }
+            
+            var tr = document.createElement('tr');
+            tr.innerHTML = `<td><img src="${m.photo || 'https://picsum.photos/150'}" class="table-img"></td><td><strong>${escapeHtml(m.studentId)}</strong></td><td class="fw-bold text-dark">${escapeHtml(m.name)}</td><td>${escapeHtml(m.className)}</td><td>${escapeHtml(m.phone)}</td><td>${escapeHtml(m.parentName)} (${escapeHtml(m.relationship)})<br><small class="text-muted">${escapeHtml(m.parentPhone)}</small></td><td>${btnHtml}</td>`;
+            tbody.appendChild(tr);
+          });
+
+          renderAdminMobileList(members);
+        });
+    }
+
+    function handleApprove(id) {
+      if(!confirm("確定要審核通過此新成員申請嗎？")) return;
+      showLoading(true);
+      callGAS('approveMember', { id: id })
+        .then(function(res) { 
+          showLoading(false); 
+          alert(res.message); 
+          if(res.success) loadAdminData(); 
+        })
+        .catch(function(err) { 
+          showLoading(false); 
+          alert("操作失敗: " + err.message); 
+        });
+    }
+
+    function handleDelete(id) {
+      if(!confirm("確定要刪除/拒絕此成員嗎？此操作將無法還原！")) return;
+      showLoading(true);
+      callGAS('deleteMember', { id: id })
+        .then(function(res) { 
+          showLoading(false); 
+          alert(res.message); 
+          if(res.success) loadAdminData(); 
+        })
+        .catch(function(err) { 
+          showLoading(false); 
+          alert("操作失敗: " + err.message); 
+        });
+    }
+
+    function initAdminMemberDropdown() {
+      callGAS('getAllMembers', {}, 'GET')
+        .then(function(members) {
+          allMembersCached = members;
+        })
+        .catch(function(err) { console.error("加載成員下拉清單失敗:", err); });
+    }
+
+    function filterTable() {
+      var query = document.getElementById('search-input').value.toLowerCase().trim();
+      
+      // 桌機版過濾
+      var trs = document.querySelectorAll('#admin-tbody tr');
+      trs.forEach(function(tr) {
+        if (tr.cells.length < 4) return;
+        var nameText = tr.cells[2].innerText.toLowerCase();
+        var classText = tr.cells[3].innerText.toLowerCase();
+        if (nameText.indexOf(query) > -1 || classText.indexOf(query) > -1) {
+          tr.style.display = '';
+        } else {
+          tr.style.display = 'none';
+        }
+      });
+
+      // 行動版過濾
+      var mobCards = document.querySelectorAll('#admin-mobile-list .card-modern');
+      mobCards.forEach(function(card) {
+        var cardText = card.innerText.toLowerCase();
+        if (cardText.indexOf(query) > -1) {
+          card.style.display = '';
+        } else {
+          card.style.display = 'none';
+        }
+      });
+    }
+
+    function handleLeaveSubmit(e) {
+      e.preventDefault();
+      if (!loggedInUserSession) {
+        alert("請先完成帳號登入！");
+        return;
+      }
+
+      var payload = {
+        studentId: loggedInUserSession.studentId,
+        name: loggedInUserSession.name,
+        className: loggedInUserSession.className || "",
+        leaveType: document.getElementById('leave-type').value,
+        reason: document.getElementById('leave-reason').value.trim()
+      };
+
+      showLoading(true);
+      callGAS('submitLeaveRequest', payload)
+        .then(function(res) {
+          showLoading(false);
+          alert(res.message);
+          if (res.success) {
+            document.getElementById('leave-form').reset();
+            if (loggedInUserSession.role !== 'admin') {
+              switchView('member-dashboard-view');
+              refreshUserProfileAndDuty();
+            }
           }
         })
         .catch(function(err) {
           showLoading(false);
-          alert("載入管理員名冊失敗：" + err.message);
+          alert("請假提交失敗：" + err.message);
         });
     }
 
-    function handleApprove(studentId) {
-      if (!confirm("確定要通過該學生的註冊審核嗎？")) return;
+    function handleApproveLeave(leaveId, studentId) {
+      if (!confirm("核定確定要批准此位成員的請假單嗎？\n(批准後系統將自動在成員檔案扣抵時數並新增里程碑考勤紀錄)")) return;
       showLoading(true);
-      callGAS('approveMember', { id: studentId })
+      callGAS('approveLeaveRequest', { leaveId: leaveId, studentId: studentId })
         .then(function(res) {
           showLoading(false);
           alert(res.message);
-          if (res.success) loadAdminData();
+          if (res.success) {
+            loadAdminLeaveRequests();
+          }
         })
         .catch(function(err) {
           showLoading(false);
-          alert("審核失敗：" + err.message);
+          alert("審批操作失敗：" + err.message);
         });
     }
 
-    function handleDelete(studentId) {
-      if (!confirm("⚠️ 確定要刪除/拒絕此成員帳號嗎？此操作不可逆！")) return;
-      showLoading(true);
-      callGAS('deleteMember', { id: studentId })
-        .then(function(res) {
-          showLoading(false);
-          alert(res.message);
-          if (res.success) loadAdminData();
+    function checkPendingLeavesForAdmin() {
+      if (!loggedInUserSession || loggedInUserSession.role !== 'admin') return;
+      callGAS('getPendingLeaves', {}, 'GET')
+        .then(function(list) {
+          var pendingOnes = list.filter(function(item) { return item.status === 'pending'; });
+          if (pendingOnes.length > 0) {
+            var newest = pendingOnes[0];
+            document.getElementById('leave-toast-text').innerText = `【最新請假單】\n姓名: ${newest.name}\n假別: ${newest.leaveType}\n原因: ${newest.reason}`;
+            var approveBtn = document.getElementById('leave-toast-btn');
+            approveBtn.onclick = function() {
+              handleApproveLeave(newest.leaveId, newest.studentId);
+              var toastEl = document.getElementById('leaveToast');
+              var toast = bootstrap.Toast.getOrCreateInstance(toastEl);
+              toast.hide();
+            };
+            var toastEl = document.getElementById('leaveToast');
+            var toast = bootstrap.Toast.getOrCreateInstance(toastEl);
+            toast.show();
+          }
         })
-        .catch(function(err) {
-          showLoading(false);
-          alert("刪除失敗：" + err.message);
-        });
+        .catch(function(err) { console.error("實時背景檢查請假失敗: ", err); });
     }
 
     function openPortfolioModal(studentId) {
@@ -1701,6 +1918,9 @@
 
       calcPortfolioTotals();
 
+      currentOldMilestones = pf.milestones || [];
+      renderOldMilestonesHistory();
+
       document.getElementById('adm-contest-title').value = '';
       document.getElementById('adm-contest-desc').value = '';
       document.getElementById('adm-skill-title').value = '';
@@ -1709,131 +1929,158 @@
       document.getElementById('adm-violation-desc').value = '';
       document.getElementById('new-milestones-container').innerHTML = '';
 
-      currentOldMilestones = pf.milestones || [];
-      var histDiv = document.getElementById('old-milestones-history-container');
-      histDiv.innerHTML = '';
-      if (currentOldMilestones.length === 0) {
-        histDiv.innerHTML = '<span class="text-muted small">尚無里程碑記錄</span>';
-      } else {
-        currentOldMilestones.forEach(function(item, idx) {
-          var row = document.createElement('div');
-          row.className = 'd-flex justify-content-between align-items-center mb-1 pb-1 border-bottom small';
-          row.innerHTML = `
-            <span><strong>[${escapeHtml(item.date)}]</strong> ${escapeHtml(item.title)}: ${escapeHtml(item.desc)}</span>
-            <button class="btn btn-outline-danger btn-xs py-0 px-1" onclick="removeOldMilestone(${idx})">刪除</button>
-          `;
-          histDiv.appendChild(row);
-        });
-      }
-
       portfolioModalObj = bootstrap.Modal.getOrCreateInstance(document.getElementById('portfolioModal'));
       portfolioModalObj.show();
     }
 
-    function removeOldMilestone(index) {
-      if (!confirm("確定要移除該筆歷史里程碑嗎？（需儲存修訂後才會生效）")) return;
-      currentOldMilestones.splice(index, 1);
-      
-      var histDiv = document.getElementById('old-milestones-history-container');
-      histDiv.innerHTML = '';
-      if (currentOldMilestones.length === 0) {
-        histDiv.innerHTML = '<span class="text-muted small">尚無里程碑記錄</span>';
-      } else {
-        currentOldMilestones.forEach(function(item, idx) {
-          var row = document.createElement('div');
-          row.className = 'd-flex justify-content-between align-items-center mb-1 pb-1 border-bottom small';
-          row.innerHTML = `
-            <span><strong>[${escapeHtml(item.date)}]</strong> ${escapeHtml(item.title)}: ${escapeHtml(item.desc)}</span>
-            <button class="btn btn-outline-danger btn-xs py-0 px-1" onclick="removeOldMilestone(${idx})">刪除</button>
-          `;
-          histDiv.appendChild(row);
-        });
-      }
+    function closePortfolioModal() {
+      if (portfolioModalObj) portfolioModalObj.hide();
     }
 
     function calcPortfolioTotals() {
-      var oldLearn = parseInt(document.getElementById('old-learn').innerText) || 0;
-      var addLearn = parseInt(document.getElementById('add-learn').value) || 0;
-      document.getElementById('total-learn').innerText = oldLearn + addLearn;
+      var ol = parseInt(document.getElementById('old-learn').innerText) || 0;
+      var oa = parseInt(document.getElementById('old-activity').innerText) || 0;
+      var oc = parseInt(document.getElementById('old-contest').innerText) || 0;
+      var os = parseInt(document.getElementById('old-skills').innerText) || 0;
+      var ot = parseInt(document.getElementById('old-late').innerText) || 0;
+      var ob = parseInt(document.getElementById('old-absent').innerText) || 0;
 
-      var oldAct = parseInt(document.getElementById('old-activity').innerText) || 0;
-      var addAct = parseInt(document.getElementById('add-activity').value) || 0;
-      document.getElementById('total-activity').innerText = oldAct + addAct;
+      var al = parseInt(document.getElementById('add-learn').value) || 0;
+      var aa = parseInt(document.getElementById('add-activity').value) || 0;
+      var ac = parseInt(document.getElementById('add-contest').value) || 0;
+      var as = parseInt(document.getElementById('add-skills').value) || 0;
+      var at = parseInt(document.getElementById('add-late').value) || 0;
+      var ab = parseInt(document.getElementById('add-absent').value) || 0;
 
-      var oldCont = parseInt(document.getElementById('old-contest').innerText) || 0;
-      var addCont = parseInt(document.getElementById('add-contest').value) || 0;
-      document.getElementById('total-contest').innerText = oldCont + addCont;
+      document.getElementById('total-learn').innerText = ol + al;
+      document.getElementById('total-activity').innerText = oa + aa;
+      document.getElementById('total-contest').innerText = oc + ac;
+      document.getElementById('total-skills').innerText = os + as;
+      document.getElementById('total-late').innerText = ot + at;
+      document.getElementById('total-absent').innerText = ob + ab;
+    }
 
-      var oldSkill = parseInt(document.getElementById('old-skills').innerText) || 0;
-      var addSkill = parseInt(document.getElementById('add-skills').value) || 0;
-      document.getElementById('total-skills').innerText = oldSkill + addSkill;
+    function renderOldMilestonesHistory() {
+      var container = document.getElementById('old-milestones-history-container');
+      container.innerHTML = '';
+      if (!currentOldMilestones || currentOldMilestones.length === 0) {
+        container.innerHTML = '<span class="text-muted small">尚無任何歷史事件紀錄。</span>';
+        return;
+      }
+      currentOldMilestones.forEach(function(m, idx) {
+        var d = document.createElement('div');
+        d.className = 'd-flex justify-content-between align-items-center mb-2 pb-2 border-bottom';
+        d.innerHTML = `
+          <div style="max-width: 85%;">
+            <span class="badge bg-secondary me-1" style="font-size:0.7rem;">${escapeHtml(m.date)}</span>
+            <strong class="text-dark small">${escapeHtml(m.title)}</strong>
+            <p class="mb-0 text-muted fs-8">${escapeHtml(m.desc)}</p>
+          </div>
+          <button class="btn btn-outline-danger btn-xs" onclick="deleteOldMilestone(${idx})"><i class="fa-solid fa-trash"></i></button>
+        `;
+        container.appendChild(d);
+      });
+    }
 
-      var oldLate = parseInt(document.getElementById('old-late').innerText) || 0;
-      var addLate = parseInt(document.getElementById('add-late').value) || 0;
-      document.getElementById('total-late').innerText = oldLate + addLate;
-
-      var oldAbsent = parseInt(document.getElementById('old-absent').innerText) || 0;
-      var addAbsent = parseInt(document.getElementById('add-absent').value) || 0;
-      document.getElementById('total-absent').innerText = oldAbsent + addAbsent;
+    function deleteOldMilestone(idx) {
+      if (!confirm("確定要刪除這筆成長里程碑歷史紀錄嗎？儲存後生效。")) return;
+      currentOldMilestones.splice(idx, 1);
+      renderOldMilestonesHistory();
     }
 
     function addNewMilestoneRow() {
       var container = document.getElementById('new-milestones-container');
-      var row = document.createElement('div');
-      row.className = 'row g-1 align-items-center mb-1';
-      row.innerHTML = `
-        <div class="col-3"><input type="text" class="form-control form-control-sm ms-title" placeholder="事件名稱" required></div>
-        <div class="col-7"><input type="text" class="form-control form-control-sm ms-desc" placeholder="詳細內容敘述說明..." required></div>
-        <div class="col-2 text-center"><button type="button" class="btn btn-danger btn-xs py-1" onclick="this.parentElement.parentElement.remove()">移除</button></div>
+      var div = document.createElement('div');
+      div.className = 'row g-2 mb-2 align-items-center new-m-row';
+      div.innerHTML = `
+        <div class="col-3"><input type="date" class="form-control form-control-sm new-m-date" value="${new Date().toISOString().split('T')[0]}" required></div>
+        <div class="col-4"><input type="text" class="form-control form-control-sm new-m-title" placeholder="自訂事件標題" required></div>
+        <div class="col-4"><input type="text" class="form-control form-control-sm new-m-desc" placeholder="詳細備註..." required></div>
+        <div class="col-1"><button class="btn btn-outline-danger btn-xs" onclick="this.parentNode.parentNode.remove()"><i class="fa-solid fa-xmark"></i></button></div>
       `;
-      container.appendChild(row);
+      container.appendChild(div);
     }
 
     function savePortfolioChanges() {
       var studentId = document.getElementById('edit-student-id').value;
-      var finalMilestones = [...currentOldMilestones];
+      var targetMember = allMembersCached.find(function(m) { return m.studentId.toString() === studentId.toString(); });
+      if (!targetMember) return;
 
-      var cTitle = document.getElementById('adm-contest-title').value.trim();
-      var cDesc = document.getElementById('adm-contest-desc').value.trim();
-      if (cTitle) {
-        finalMilestones.push({ type: 'award', title: cTitle, desc: cDesc || '校外攝影/電視競賽獎項', date: new Date().toLocaleDateString() });
+      var totalL = parseInt(document.getElementById('total-learn').innerText) || 0;
+      var totalA = parseInt(document.getElementById('total-activity').innerText) || 0;
+      var totalC = parseInt(document.getElementById('total-contest').innerText) || 0;
+      var totalS = parseInt(document.getElementById('total-skills').innerText) || 0;
+      var totalLate = parseInt(document.getElementById('total-late').innerText) || 0;
+      var totalAbsent = parseInt(document.getElementById('total-absent').innerText) || 0;
+
+      var finalMilestones = JSON.parse(JSON.stringify(currentOldMilestones));
+
+      // 追加競賽
+      var contestTitle = document.getElementById('adm-contest-title').value.trim();
+      var contestDesc = document.getElementById('adm-contest-desc').value.trim();
+      if (contestTitle) {
+        finalMilestones.push({
+          type: "award",
+          title: "[追加榮譽] " + contestTitle,
+          desc: contestDesc,
+          date: new Date().toISOString().split('T')[0]
+        });
       }
 
-      var sTitle = document.getElementById('adm-skill-title').value.trim();
-      var sDesc = document.getElementById('adm-skill-desc').value.trim();
-      if (sTitle) {
-        finalMilestones.push({ type: 'normal', title: '🛠️ 技術考驗通過: ' + sTitle, desc: sDesc || '通過電視台技術合格審定', date: new Date().toLocaleDateString() });
+      // 追加技術
+      var skillTitle = document.getElementById('adm-skill-title').value.trim();
+      var skillDesc = document.getElementById('adm-skill-desc').value.trim();
+      if (skillTitle) {
+        finalMilestones.push({
+          type: "normal",
+          title: "[考試合格] " + skillTitle,
+          desc: skillDesc,
+          date: new Date().toISOString().split('T')[0]
+        });
       }
 
-      var vType = document.getElementById('adm-violation-type').value;
-      var vDesc = document.getElementById('adm-violation-desc').value.trim();
-      if (vType) {
-        finalMilestones.push({ type: 'violation', title: '⚠️ 考勤違規記錄: ' + vType, desc: vDesc || '違反電視台團隊常規備忘錄', date: new Date().toLocaleDateString() });
+      // 違規/考勤
+      var violationType = document.getElementById('adm-violation-type').value;
+      var violationDesc = document.getElementById('adm-violation-desc').value.trim();
+      if (violationType) {
+        finalMilestones.push({
+          type: "violation",
+          title: "[考勤警告] (" + violationType + ")",
+          desc: violationDesc || "記錄有案，核實存查",
+          date: new Date().toISOString().split('T')[0]
+        });
       }
 
-      var customRows = document.querySelectorAll('#new-milestones-container .row');
-      customRows.forEach(function(row) {
-        var t = row.querySelector('.ms-title').value.trim();
-        var d = row.querySelector('.ms-desc').value.trim();
-        if (t) {
-          finalMilestones.push({ type: 'normal', title: t, desc: d, date: new Date().toLocaleDateString() });
+      // 自訂
+      var rows = document.querySelectorAll('.new-m-row');
+      rows.forEach(function(row) {
+        var dateVal = row.querySelector('.new-m-date').value;
+        var titleVal = row.querySelector('.new-m-title').value.trim();
+        var descVal = row.querySelector('.new-m-desc').value.trim();
+        if (titleVal) {
+          finalMilestones.push({
+            type: "normal",
+            title: titleVal,
+            desc: descVal,
+            date: dateVal
+          });
         }
       });
 
-      var newPortfolio = {
-        learnHours: parseInt(document.getElementById('total-learn').innerText) || 0,
-        activityHours: parseInt(document.getElementById('total-activity').innerText) || 0,
-        contests: parseInt(document.getElementById('total-contest').innerText) || 0,
-        skills: parseInt(document.getElementById('total-skills').innerText) || 0,
-        late: parseInt(document.getElementById('total-late').innerText) || 0,
-        absent: parseInt(document.getElementById('total-absent').innerText) || 0,
+      var updatedPortfolio = {
+        learnHours: totalL,
+        activityHours: totalA,
+        contests: totalC,
+        skills: totalS,
+        late: totalLate,
+        absent: totalAbsent,
         milestones: finalMilestones
       };
 
       showLoading(true);
-      portfolioModalObj.hide();
+      closePortfolioModal();
 
-      callGAS('updateMemberPortfolio', { studentId: studentId, newPortfolioObj: newPortfolio })
+      callGAS('updateMemberPortfolio', { studentId: studentId, newPortfolioObj: updatedPortfolio })
         .then(function(res) {
           showLoading(false);
           alert(res.message);
@@ -1843,382 +2090,115 @@
         })
         .catch(function(err) {
           showLoading(false);
-          alert("儲存檔案失敗: " + err.message);
+          alert("儲存變更失敗：" + err.message);
         });
     }
-
-    function closePortfolioModal() {
-      portfolioModalObj = bootstrap.Modal.getOrCreateInstance(document.getElementById('portfolioModal'));
-      portfolioModalObj.hide();
-    }
-
-    function filterTable() {
-      var kw = document.getElementById('search-input').value.toLowerCase().trim();
-      var rows = document.querySelectorAll('#admin-tbody tr');
-      rows.forEach(function(r) {
-        var text = r.innerText.toLowerCase();
-        r.style.display = text.indexOf(kw) !== -1 ? '' : 'none';
-      });
-    }
-
-    function initAdminMemberDropdown() {}
 
     function openBorrowModal() {
       document.getElementById('borrow-form').reset();
       document.getElementById('borrow-date').value = new Date().toISOString().split('T')[0];
       
-      var mBlock = document.getElementById('borrow-member-block');
-      var gBlock = document.getElementById('borrow-guest-block');
-      
+      var now = new Date();
+      var hrs = now.getHours().toString().padStart(2, '0');
+      var mins = now.getMinutes().toString().padStart(2, '0');
+      document.getElementById('borrow-time').value = hrs + ":" + mins;
+
+      var guestBlock = document.getElementById('borrow-guest-block');
+      var memberBlock = document.getElementById('borrow-member-block');
+      var memberInfo = document.getElementById('borrow-member-info');
+
       if (loggedInUserSession) {
-        mBlock.style.display = 'block';
-        gBlock.style.display = 'none';
-        document.getElementById('borrow-member-info').innerText = loggedInUserSession.name + " (" + loggedInUserSession.className + ")";
+        guestBlock.style.display = 'none';
+        memberBlock.style.display = 'block';
+        memberInfo.innerText = `${loggedInUserSession.name} (${loggedInUserSession.className || '內部成員'})`;
+        
+        document.getElementById('borrow-name').value = loggedInUserSession.name;
+        document.getElementById('borrow-class').value = loggedInUserSession.className || '電視台內部成員';
+        document.getElementById('borrow-phone').value = loggedInUserSession.phone || '';
       } else {
-        mBlock.style.display = 'none';
-        gBlock.style.display = 'flex';
-        document.getElementById('borrow-name').setAttribute('required', 'true');
-        document.getElementById('borrow-class').setAttribute('required', 'true');
-        document.getElementById('borrow-phone').setAttribute('required', 'true');
+        guestBlock.style.display = 'flex';
+        memberBlock.style.display = 'none';
+        
+        document.getElementById('borrow-name').value = '';
+        document.getElementById('borrow-class').value = '';
+        document.getElementById('borrow-phone').value = '';
       }
-      
+
       borrowModalObj = bootstrap.Modal.getOrCreateInstance(document.getElementById('borrowModal'));
       borrowModalObj.show();
     }
 
     function handleBorrowSubmit(e) {
       e.preventDefault();
-      var eq = [];
-      for (var i = 1; i <= 5; i++) {
-        var val = document.getElementById('borrow-eq-' + i).value;
-        if (val) eq.push(val);
+      var bName = document.getElementById('borrow-name').value.trim();
+      var bClass = document.getElementById('borrow-class').value.trim();
+      var bPhone = document.getElementById('borrow-phone').value.trim();
+
+      if (!bName || !bClass || !bPhone) {
+        alert("借用人基本聯絡資訊不完整，請確實填寫。");
+        return;
       }
-      
+
+      var items = [];
+      for (var i = 1; i <= 5; i++) {
+        var el = document.getElementById('borrow-eq-' + i);
+        if (el && el.value) items.push(el.value);
+      }
+
+      if (items.length === 0) {
+        alert("請至少選擇 1 件借用器材！");
+        return;
+      }
+
+      var duration = document.getElementById('borrow-duration').value;
+      var dateVal = document.getElementById('borrow-date').value;
+      var timeVal = document.getElementById('borrow-time').value;
+
       var payload = {
-        identity: loggedInUserSession ? '電視台成員' : '校外訪客/教職員',
-        name: loggedInUserSession ? loggedInUserSession.name : document.getElementById('borrow-name').value.trim(),
-        className: loggedInUserSession ? loggedInUserSession.className : document.getElementById('borrow-class').value.trim(),
-        phone: loggedInUserSession ? loggedInUserSession.phone : document.getElementById('borrow-phone').value.trim(),
-        equipment: eq.join(', '),
-        date: document.getElementById('borrow-date').value,
-        time: document.getElementById('borrow-time').value,
-        duration: document.getElementById('borrow-duration').value
+        identity: loggedInUserSession ? "內部成員" : "外部校級訪客",
+        name: bName,
+        className: bClass,
+        phone: bPhone,
+        equipment: items.join(', '),
+        date: dateVal,
+        time: timeVal,
+        duration: duration
       };
-      
+
       showLoading(true);
+      borrowModalObj = bootstrap.Modal.getOrCreateInstance(document.getElementById('borrowModal'));
       borrowModalObj.hide();
-      
+
       callGAS('submitEquipmentBorrow', payload)
         .then(function(res) {
           showLoading(false);
           if (res.success) {
-            document.getElementById('popup-borrow-name').innerText = payload.name;
-            document.getElementById('popup-borrow-class').innerText = payload.className;
-            document.getElementById('popup-borrow-equip').innerText = payload.equipment;
-            document.getElementById('popup-borrow-datetime').innerText = payload.date + " " + payload.time;
-            document.getElementById('popup-borrow-duration').innerText = payload.duration;
-            
-            var successModal = bootstrap.Modal.getOrCreateInstance(document.getElementById('borrowAlertModal'));
-            successModal.show();
-            
-            loadBorrowRecords();
+            document.getElementById('popup-borrow-name').innerText = bName;
+            document.getElementById('popup-borrow-class').innerText = bClass;
+            document.getElementById('popup-borrow-equip').innerText = items.join(', ');
+            document.getElementById('popup-borrow-datetime').innerText = dateVal + " " + timeVal;
+            document.getElementById('popup-borrow-duration').innerText = duration;
+
+            var alertModal = bootstrap.Modal.getOrCreateInstance(document.getElementById('borrowAlertModal'));
+            alertModal.show();
           } else {
-            alert(res.message);
+            alert("借用登記失敗：" + res.message);
           }
         })
         .catch(function(err) {
           showLoading(false);
-          alert("設備登記提交失敗: " + err.message);
+          alert("登記失敗，通訊出錯：" + err.message);
         });
     }
 
     function viewBorrowFromPopup() {
-      var successModal = bootstrap.Modal.getOrCreateInstance(document.getElementById('borrowAlertModal'));
-      successModal.hide();
+      var alertModal = bootstrap.Modal.getOrCreateInstance(document.getElementById('borrowAlertModal'));
+      alertModal.hide();
       switchView('borrow-view');
     }
 
-    function renderBorrowMobileList(records) {
-      const mobContainer = document.getElementById('borrow-mobile-list');
-      if (!mobContainer) return;
-      mobContainer.innerHTML = '';
-
-      if (!records || records.length === 0) {
-        mobContainer.innerHTML = '<div class="text-center text-muted py-4">目前尚無任何出借借用備案紀錄。</div>';
-        return;
-      }
-
-      records.forEach(function(r) {
-        const card = document.createElement('div');
-        card.className = 'card-modern p-3 mb-3';
-        card.innerHTML = `
-          <div class="d-flex justify-content-between border-bottom pb-2 mb-2">
-            <div>
-              <span class="badge bg-secondary mb-1">${escapeHtml(r.identity)}</span>
-              <h6 class="fw-bold text-dark mb-0">${escapeHtml(r.name)} (${escapeHtml(r.className)})</h6>
-            </div>
-            <div class="text-end text-muted small">${escapeHtml(r.date)}<br>${escapeHtml(r.time)}</div>
-          </div>
-          <div class="small">
-            <div class="mb-1"><strong>📞 聯絡電話：</strong>${escapeHtml(r.phone)}</div>
-            <div class="mb-1"><strong>📦 借用器材：</strong><span class="text-primary fw-bold">${escapeHtml(r.equipment)}</span></div>
-            <div><strong>🕒 預約時長：</strong>${escapeHtml(r.duration)} 小時</div>
-          </div>
-        `;
-        mobContainer.appendChild(card);
-      });
-    }
-
-    function loadBorrowRecords() {
-      var tbody = document.getElementById('borrowRecordsBody');
-      if (!tbody) return;
-      tbody.innerHTML = '<tr><td colspan="8" class="text-center text-muted py-3"><div class="spinner-border spinner-border-sm text-secondary me-2"></div>載入雲端紀錄中...</td></tr>';
-      
-      callGAS('getBorrowRecords', {}, 'GET')
-        .then(function(records) {
-          tbody.innerHTML = '';
-          if (!records || records.length === 0) {
-            tbody.innerHTML = '<tr><td colspan="8" class="text-center text-muted">目前尚無任何出借紀錄。</td></tr>';
-            renderBorrowMobileList([]);
-            return;
-          }
-          
-          let sortedRecords = [...records].reverse();
-          sortedRecords.forEach(function(r) {
-            var tr = document.createElement('tr');
-            tr.innerHTML = `
-              <td class="small text-muted">${escapeHtml(r.timestamp)}</td>
-              <td><span class="badge bg-secondary">${escapeHtml(r.identity)}</span></td>
-              <td class="fw-bold text-dark">${escapeHtml(r.name)}</td>
-              <td>${escapeHtml(r.className)}</td>
-              <td>${escapeHtml(r.phone)}</td>
-              <td class="text-start text-primary fw-bold small">${escapeHtml(r.equipment)}</td>
-              <td><strong>${escapeHtml(r.date)}</strong><br><small class="text-muted">${escapeHtml(r.time)}</small></td>
-              <td><span class="badge bg-light text-dark px-2">${escapeHtml(r.duration)} 小時</span></td>
-            `;
-            tbody.appendChild(tr);
-          });
-          renderBorrowMobileList(sortedRecords);
-        })
-        .catch(function(err) {
-          tbody.innerHTML = `<tr><td colspan="8" class="text-center text-danger">雲端紀錄載入失敗: ${err.message}</td></tr>`;
-        });
-    }
-
-    function handleLeaveSubmit(e) {
-      e.preventDefault();
-      if (!loggedInUserSession) {
-        alert("請先完成安全帳號登入！");
-        return;
-      }
-      
-      var leaveType = document.getElementById('leave-type').value;
-      var reason = document.getElementById('leave-reason').value.trim();
-      
-      if (!leaveType) {
-        alert("請選擇請假假別類型！");
-        return;
-      }
-      
-      var payload = {
-        studentId: loggedInUserSession.studentId,
-        name: loggedInUserSession.name,
-        className: loggedInUserSession.className,
-        leaveType: leaveType,
-        reason: reason
-      };
-      
-      showLoading(true);
-      callGAS('submitLeaveRequest', payload)
-        .then(function(res) {
-          showLoading(false);
-          alert(res.message);
-          if (res.success) {
-            document.getElementById('leave-form').reset();
-            document.getElementById('leave-name').value = loggedInUserSession.name;
-            document.getElementById('leave-class-id').value = (loggedInUserSession.className || "") + " / " + loggedInUserSession.studentId;
-          }
-        })
-        .catch(function(err) {
-          showLoading(false);
-          alert("送出請假失敗，請重新嘗試：" + err.message);
-        });
-    }
-
-    function renderLeaveMobileList(leaves) {
-      const mobContainer = document.getElementById('leave-mobile-list');
-      if (!mobContainer) return;
-      mobContainer.innerHTML = '';
-
-      if (!leaves || leaves.length === 0) {
-        mobContainer.innerHTML = '<div class="text-center text-muted py-4">目前尚無任何請假紀錄。</div>';
-        return;
-      }
-
-      leaves.forEach(function(item) {
-        let statusBadge = '';
-        let actionBtn = '';
-        
-        if (item.status === 'approved') {
-          statusBadge = '<span class="badge bg-success">已批准</span>';
-          actionBtn = '<button class="btn btn-secondary btn-xs w-100" disabled>無須處理</button>';
-        } else {
-          statusBadge = '<span class="badge bg-warning text-dark">審核中</span>';
-          actionBtn = `<button class="btn btn-success btn-xs w-100" onclick="handleApproveLeaveDirectly('${escapeHtml(item.leaveId)}', '${escapeHtml(item.studentId)}')">批准</button>`;
-        }
-
-        const card = document.createElement('div');
-        card.className = 'card-modern p-3 mb-3';
-        card.innerHTML = `
-          <div class="d-flex justify-content-between border-bottom pb-2 mb-2">
-            <div>
-              <h6 class="fw-bold text-dark mb-0">${escapeHtml(item.name)}</h6>
-              <small class="text-muted">${escapeHtml(item.className)} (${escapeHtml(item.studentId)})</small>
-            </div>
-            <div class="text-end">${statusBadge}</div>
-          </div>
-          <div class="small mb-2">
-            <div><strong>時間：</strong>${escapeHtml(item.timestamp)}</div>
-            <div><strong>假別：</strong><span class="text-warning fw-bold">${escapeHtml(item.leaveType)}</span></div>
-            <div><strong>事由：</strong>${escapeHtml(item.reason)}</div>
-          </div>
-          <div class="pt-2 border-top">${actionBtn}</div>
-        `;
-        mobContainer.appendChild(card);
-      });
-    }
-
-    function loadAdminLeaveRequests() {
-      var tbody = document.getElementById('admin-leave-list-body');
-      if (!tbody) return;
-      
-      callGAS('getPendingLeaves', {}, 'GET')
-        .then(function(leaves) {
-          tbody.innerHTML = '';
-          if (!leaves || leaves.length === 0) {
-            tbody.innerHTML = '<tr><td colspan="7" class="text-center text-muted py-3">目前尚無任何請假歷史紀錄。</td></tr>';
-            renderLeaveMobileList([]);
-            return;
-          }
-          
-          leaves.forEach(function(item) {
-            var tr = document.createElement('tr');
-            var statusBadge = '';
-            var actionBtn = '';
-            
-            if (item.status === 'approved') {
-              statusBadge = '<span class="badge bg-success"><i class="fa-solid fa-circle-check me-1"></i>已批准</span>';
-              actionBtn = '<button class="btn btn-secondary btn-xs" disabled>無須處理</button>';
-            } else {
-              statusBadge = '<span class="badge bg-warning text-dark"><i class="fa-solid fa-circle-notch fa-spin me-1"></i>審核中</span>';
-              actionBtn = `<button class="btn btn-success btn-xs" onclick="handleApproveLeaveDirectly('${escapeHtml(item.leaveId)}', '${escapeHtml(item.studentId)}')"><i class="fa-solid fa-check me-1"></i>批准</button>`;
-            }
-            
-            tr.innerHTML = `
-              <td><span class="text-secondary">${escapeHtml(item.timestamp || '')}</span></td>
-              <td><strong>${escapeHtml(item.name || '')}</strong></td>
-              <td><span class="badge bg-light text-dark">${escapeHtml(item.className || '')}</span><br><small class="text-muted">${escapeHtml(item.studentId || '')}</small></td>
-              <td><span class="badge bg-outline-warning text-warning border border-warning">${escapeHtml(item.leaveType || '')}</span></td>
-              <td><div class="text-wrap" style="max-width: 220px;">${escapeHtml(item.reason || '')}</div></td>
-              <td class="text-center">${statusBadge}</td>
-              <td class="text-center">${actionBtn}</td>
-            `;
-            tbody.appendChild(tr);
-          });
-          renderLeaveMobileList(leaves);
-        })
-        .catch(function(err) {
-          tbody.innerHTML = '<tr><td colspan="7" class="text-center text-danger py-3">讀取請假列表異常: ' + err.message + '</td></tr>';
-        });
-    }
-
-    function handleApproveLeaveDirectly(leaveId, studentId) {
-      if (!confirm("核准這筆請假嗎？此動作將核發考勤缺勤紀錄並寫入其里程碑。")) return;
-      showLoading(true);
-      callGAS('approveLeaveRequest', { leaveId: leaveId, studentId: studentId })
-        .then(function(res) {
-          showLoading(false);
-          alert(res.message);
-          loadAdminLeaveRequests();
-          if (loggedInUserSession && loggedInUserSession.role === 'admin') {
-            loadAdminData();
-          }
-        })
-        .catch(function(err) {
-          showLoading(false);
-          alert("核准處理失敗: " + err.message);
-        });
-    }
-    // 假設這是您原本處理登入成功的函式
-    function handleLoginSuccess(userInfo) {
-      // 1. 將登入狀態與使用者資訊寫入瀏覽器快取
-      localStorage.setItem("isLoggedIn", "true");
-      localStorage.setItem("currentUser", JSON.stringify(userInfo)); // 儲存使用者物件
-      
-      // 2. 執行原本登入成功後的 UI 切換邏輯（例如顯示主畫面、隱藏登入頁）
-      showMainPage(userInfo);
-    }
-    function checkPendingLeavesForAdmin() {
-      if (!loggedInUserSession || loggedInUserSession.role !== 'admin') return;
-      
-      callGAS('getPendingLeaves', {}, 'GET')
-        .then(function(leaves) {
-          var pendings = leaves.filter(function(item) { return item.status === 'pending'; });
-          if (pendings.length > 0) {
-            var newest = pendings[0]; 
-            var toastText = document.getElementById('leave-toast-text');
-            if(toastText) {
-              toastText.innerHTML = `🔔 收到來自 <strong>${escapeHtml(newest.name)}</strong> 的新請假單 (${escapeHtml(newest.leaveType)})。`;
-            }
-            var toastBtn = document.getElementById('leave-toast-btn');
-            if(toastBtn) {
-              toastBtn.onclick = function() {
-                var myToast = bootstrap.Toast.getInstance(document.getElementById('leaveToast'));
-                if(myToast) myToast.hide();
-                handleApproveLeaveDirectly(newest.leaveId, newest.studentId);
-              };
-            }
-            var toastEl = document.getElementById('leaveToast');
-            if(toastEl) {
-              var bsToast = bootstrap.Toast.getOrCreateInstance(toastEl);
-              bsToast.show();
-            }
-          }
-        })
-        .catch(function(err) {
-          console.error("即時請假輪詢異常: " + err.message);
-        });
-    }
-    
-    // 綁定給登出按鈕的點擊事件
-    function handleLogout() {
-      // 1. 清除瀏覽器快取中的登入資訊
-      localStorage.removeItem("isLoggedIn");
-      localStorage.removeItem("currentUser");
-      
-      // 2. 如果您有使用其他快取，也可以一併清除： localStorage.clear();
-      
-      // 3. 顯示登入畫面
-      showLoginPage();
-    }
-    
-    document.addEventListener("DOMContentLoaded", function() {
-      // 1. 檢查是否有登入紀錄
-      const isLoggedIn = localStorage.getItem("isLoggedIn");
-      const savedUser = localStorage.getItem("currentUser");
-      
-      if (isLoggedIn === "true" && savedUser) {
-        const userInfo = JSON.parse(savedUser);
-        
-        // 2. 如果已登入，直接載入主畫面與數據
-        showMainPage(userInfo); 
-        
-        // 如果需要從 Google 試算表同步最新數據，可在這裡調用
-        loadUserData(userInfo.userName); 
-      } else {
-        // 3. 若未登入，顯示登入畫面
-        showLoginPage();
-      }
+    window.addEventListener('load', function() {
+      showLoading(false); // 網頁載入完成，關閉初始遮罩
     });
   </script>
 </body>
