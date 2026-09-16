@@ -177,9 +177,12 @@
 
   <script>
     // ===== 1. Supabase 初始化 =====
+    // ⚠️ 請務必將下方兩行改為您的 Supabase 控制台實際金鑰
     const SUPABASE_URL = 'https://ogcjksialzmrsmtucalb.supabase.co/rest/v1/';
     const SUPABASE_ANON_KEY = 'sb_publishable_qz-26TtYcNN4zGQPJA37gA_QJYKsTDW';
-    const supabase = supabase.createClient(SUPABASE_URL, SUPABASE_ANON_KEY);
+    
+    // 修正：重命名實例變數，避免與 window.supabase 庫名稱衝突
+    const supabaseClient = supabase.createClient(SUPABASE_URL, SUPABASE_ANON_KEY);
 
     let currentUser = null;
 
@@ -203,40 +206,51 @@
       const studentId = document.getElementById('login-id').value.trim();
       const password = document.getElementById('login-pwd').value.trim();
 
-      const { data, error } = await supabase
-        .from('members')
-        .select('*')
-        .eq('student_id', studentId)
-        .eq('password', password)
-        .single();
+      try {
+        const { data, error } = await supabaseClient
+          .from('members')
+          .select('*')
+          .eq('student_id', studentId)
+          .eq('password', password)
+          .maybeSingle();
 
-      showLoading(false);
+        showLoading(false);
 
-      if (error || !data) {
-        alert('學號或密碼錯誤！');
-        return;
+        if (error) {
+          alert('連線失敗，請檢查金鑰或網路配置：' + error.message);
+          return;
+        }
+
+        if (!data) {
+          alert('學號或密碼錯誤！');
+          return;
+        }
+
+        if (data.role === 'pending') {
+          alert('您的帳號正在等待管理員審批，請稍後再試！');
+          return;
+        }
+
+        currentUser = data;
+        document.getElementById('user-tag').innerText = `${data.name} (${data.role})`;
+        document.getElementById('user-tag').style.display = 'inline-block';
+        document.getElementById('logout-btn').style.display = 'inline-block';
+
+        // 更新儀表板
+        const portfolio = data.portfolio || {};
+        document.getElementById('m-name').innerText = data.name;
+        document.getElementById('m-class').innerText = data.class_name || '無班級資料';
+        document.getElementById('stat-learn').innerText = portfolio.learnHours || 0;
+        document.getElementById('stat-activity').innerText = portfolio.activityHours || 0;
+        document.getElementById('stat-contest').innerText = portfolio.contests || 0;
+        document.getElementById('stat-skills').innerText = portfolio.skills || 0;
+        document.getElementById('leave-name').value = data.name;
+
+        switchView('member-dashboard-view');
+      } catch (err) {
+        showLoading(false);
+        alert('系統發生未預期錯誤：' + err.message);
       }
-
-      if (data.role === 'pending') {
-        alert('您的帳號正在等待管理員審批，請稍後再試！');
-        return;
-      }
-
-      currentUser = data;
-      document.getElementById('user-tag').innerText = `${data.name} (${data.role})`;
-      document.getElementById('user-tag').style.display = 'inline-block';
-      document.getElementById('logout-btn').style.display = 'inline-block';
-
-      // 更新儀表板
-      document.getElementById('m-name').innerText = data.name;
-      document.getElementById('m-class').innerText = data.class_name;
-      document.getElementById('stat-learn').innerText = data.portfolio.learnHours || 0;
-      document.getElementById('stat-activity').innerText = data.portfolio.activityHours || 0;
-      document.getElementById('stat-contest').innerText = data.portfolio.contests || 0;
-      document.getElementById('stat-skills').innerText = data.portfolio.skills || 0;
-      document.getElementById('leave-name').value = data.name;
-
-      switchView('member-dashboard-view');
     }
 
     function logout() {
@@ -253,16 +267,15 @@
       const fileInput = document.getElementById('reg-photo');
       let photoUrl = 'https://via.placeholder.com/150';
 
-      // 上傳圖片至 Supabase Storage
       if (fileInput.files.length > 0) {
         const file = fileInput.files[0];
         const filePath = `${studentId}_${Date.now()}.${file.name.split('.').pop()}`;
-        const { data: uploadData, error: uploadErr } = await supabase.storage
+        const { data: uploadData, error: uploadErr } = await supabaseClient.storage
           .from('member-photos')
           .upload(filePath, file);
 
         if (!uploadErr) {
-          const { data: publicUrlData } = supabase.storage.from('member-photos').getPublicUrl(filePath);
+          const { data: publicUrlData } = supabaseClient.storage.from('member-photos').getPublicUrl(filePath);
           photoUrl = publicUrlData.publicUrl;
         }
       }
@@ -281,7 +294,7 @@
         portfolio: { learnHours: 0, activityHours: 0, contests: 0, skills: 0, milestones: [] }
       };
 
-      const { error } = await supabase.from('members').insert([newMember]);
+      const { error } = await supabaseClient.from('members').insert([newMember]);
       showLoading(false);
 
       if (error) {
@@ -295,7 +308,7 @@
     // ===== 4. 活動值日排班與載入 =====
     async function loadDuties() {
       showLoading(true);
-      const { data, error } = await supabase.from('activity_duties').select('*').order('duty_date', { ascending: false });
+      const { data, error } = await supabaseClient.from('activity_duties').select('*').order('duty_date', { ascending: false });
       showLoading(false);
 
       const tbody = document.getElementById('duty-tbody');
@@ -321,7 +334,7 @@
     // ===== 5. 器材借用 =====
     async function loadBorrows() {
       showLoading(true);
-      const { data, error } = await supabase.from('equipment_borrows').select('*').order('timestamp', { ascending: false });
+      const { data, error } = await supabaseClient.from('equipment_borrows').select('*').order('timestamp', { ascending: false });
       showLoading(false);
 
       const tbody = document.getElementById('borrowRecordsBody');
@@ -348,7 +361,7 @@
         return;
       }
       showLoading(true);
-      const { data, error } = await supabase.from('members').select('*');
+      const { data, error } = await supabaseClient.from('members').select('*');
       showLoading(false);
 
       const tbody = document.getElementById('admin-tbody');
@@ -372,7 +385,7 @@
 
     async function approveMember(studentId) {
       showLoading(true);
-      const { error } = await supabase.from('members').update({ role: 'member' }).eq('student_id', studentId);
+      const { error } = await supabaseClient.from('members').update({ role: 'member' }).eq('student_id', studentId);
       showLoading(false);
       if (!error) {
         alert('審核成功！');
@@ -394,7 +407,7 @@
         leave_type: document.getElementById('leave-type').value,
         reason: document.getElementById('leave-reason').value
       };
-      const { error } = await supabase.from('leave_requests').insert([req]);
+      const { error } = await supabaseClient.from('leave_requests').insert([req]);
       showLoading(false);
       if (!error) {
         alert('請假單已提交成功！');
