@@ -3,7 +3,7 @@
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
-  <title>校園電視台綜合管理系統 (Supabase 完整版)</title>
+  <title>校園電視台綜合管理系統 (全套優化版)</title>
   <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.2/dist/css/bootstrap.min.css" rel="stylesheet">
   <link href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.1/css/all.min.css" rel="stylesheet">
   <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
@@ -72,22 +72,22 @@
 
   <!-- 側邊欄 -->
   <div class="sidebar">
-    <div class="sidebar-brand"><i class="fa-solid fa-tv me-2 text-info"></i>校園電視台 (Supabase)</div>
+    <div class="sidebar-brand"><i class="fa-solid fa-tv me-2 text-info"></i>校園電視台</div>
     <div class="sidebar-menu">
       <a id="menu-login" onclick="switchView('login-view')" class="active"><i class="fa-solid fa-right-to-bracket"></i>帳號驗證登入</a>
       <a id="menu-register" onclick="switchView('register-view')"><i class="fa-solid fa-user-plus"></i>新成員申請註冊</a>
-      <a id="menu-dashboard" onclick="switchView('member-dashboard-view')"><i class="fa-solid fa-chart-line"></i>個人專屬檔案</a>
-      <a id="menu-duty" onclick="switchView('duty-table-view')"><i class="fa-solid fa-calendar-check"></i>活動值日簽到</a>
+      <a id="menu-dashboard" onclick="switchView('member-dashboard-view')" style="display:none;"><i class="fa-solid fa-chart-line"></i>個人專屬檔案</a>
+      <a id="menu-duty" onclick="switchView('duty-table-view')" style="display:none;"><i class="fa-solid fa-calendar-check"></i>活動值日簽到</a>
       <a id="menu-borrow" onclick="switchView('borrow-view')"><i class="fa-solid fa-toolbox"></i>器材借用綜合表</a>
-      <a id="menu-leave" onclick="switchView('leave-view')"><i class="fa-solid fa-user-clock"></i>成員線上請假申請</a>
-      <a id="menu-admin" onclick="switchView('admin-panel-view')" style="border-top: 1px solid rgba(255,255,255,0.1);"><i class="fa-solid fa-user-shield"></i>高階管理控制台</a>
+      <a id="menu-leave" onclick="switchView('leave-view')" style="display:none;"><i class="fa-solid fa-user-clock"></i>成員線上請假申請</a>
+      <a id="menu-admin" onclick="switchView('admin-panel-view')" style="display:none; border-top: 1px solid rgba(255,255,255,0.1);"><i class="fa-solid fa-user-shield"></i>高階管理控制台</a>
     </div>
   </div>
 
   <!-- Loading 遮罩 -->
   <div id="loading-mask" style="display:none;">
     <div class="spinner-border text-info shadow" role="status"></div>
-    <span class="mt-3 fw-bold text-secondary">Supabase 資料傳輸中...</span>
+    <span class="mt-3 fw-bold text-secondary">資料庫傳輸中...</span>
   </div>
 
   <!-- 主內容區 -->
@@ -139,8 +139,7 @@
 
     <!-- 3. 個人儀表板 -->
     <div id="member-dashboard-view" class="view-section">
-      <div id="member-dashboard-alert" class="alert alert-warning"><i class="fa-solid fa-triangle-exclamation me-2"></i>請先完成帳號登入以檢視個人專屬檔案。</div>
-      <div id="member-dashboard-content" style="display:none;">
+      <div id="member-dashboard-content">
         <div class="row g-4">
           <div class="col-12 col-lg-4">
             <div class="card-modern p-4 text-center">
@@ -198,7 +197,7 @@
           <div class="card-modern p-4 text-center">
             <div class="bg-light text-success d-inline-block p-3 rounded-circle mb-3"><i class="fa-solid fa-toolbox fa-2xl"></i></div>
             <h5 class="fw-bold">器材快速出借登記</h5>
-            <p class="text-muted small mb-4">請實名備案登記欲借用之各項攝影與錄音設備。</p>
+            <p class="text-muted small mb-4">實名登記欲借用之攝影與錄音設備。</p>
             <button class="btn btn-success w-100 py-3 fw-bold" onclick="openBorrowModal()"><i class="fa-solid fa-pen-to-square me-2"></i>開啟出借登記表單</button>
           </div>
         </div>
@@ -208,7 +207,7 @@
             <div class="table-responsive">
               <table class="table align-middle text-center">
                 <thead>
-                  <tr><th>登記時間</th><th>身分</th><th>借用人</th><th>單位</th><th>器材</th><th>時間</th><th>時長</th></tr>
+                  <tr><th>登記時間</th><th>身分</th><th>借用人</th><th>單位</th><th>器材</th><th>狀態</th><th>操作</th></tr>
                 </thead>
                 <tbody id="borrowRecordsBody"></tbody>
               </table>
@@ -220,18 +219,17 @@
 
     <!-- 6. 高階管理控制台 -->
     <div id="admin-panel-view" class="view-section">
-      <div id="admin-panel-alert" class="alert alert-danger"><i class="fa-solid fa-shield-halved me-2"></i>本區塊具高階權限，請先登入管理員帳號。</div>
-      <div id="admin-panel-content" style="display:none;">
+      <div id="admin-panel-content">
         <div class="card-modern p-4 mb-4 d-flex justify-content-between align-items-center">
-          <div><h5 class="fw-bold mb-1"><i class="fa-solid fa-calendar-plus me-2 text-success"></i>發佈全新活動值日</h5><p class="text-muted small mb-0">發佈後將即時同步至全體隊員值日大廳。</p></div>
+          <div><h5 class="fw-bold mb-1"><i class="fa-solid fa-calendar-plus me-2 text-success"></i>發佈全新活動值日</h5><p class="text-muted small mb-0">發佈後將即時同步至隊員值日大廳。</p></div>
           <button class="btn btn-success fw-bold" onclick="openDutyModal()"><i class="fa-solid fa-plus me-1"></i>開啟排班面版</button>
         </div>
         <div class="card-modern p-4">
-          <h5 class="fw-bold mb-3"><i class="fa-solid fa-users me-2 text-secondary"></i>全體成員名冊與檔案審定</h5>
+          <h5 class="fw-bold mb-3"><i class="fa-solid fa-users me-2 text-secondary"></i>全體成員名冊與權限管理</h5>
           <div class="table-responsive">
             <table class="table align-middle text-center">
               <thead>
-                <tr><th>大頭照</th><th>學號</th><th>姓名</th><th>班級</th><th>電話</th><th>權限</th><th>操作</th></tr>
+                <tr><th>照片</th><th>學號</th><th>姓名</th><th>班級</th><th>電話</th><th>權限狀態</th><th>操作</th></tr>
               </thead>
               <tbody id="admin-tbody"></tbody>
             </table>
@@ -247,7 +245,7 @@
           <h4 class="fw-bold mb-4"><i class="fa-solid fa-user-clock me-2 text-warning"></i>隊員線上請假申請單</h4>
           <form onsubmit="handleLeaveSubmit(event)">
             <div class="row g-3 mb-3">
-              <div class="col-md-6"><label class="form-label small fw-bold">姓名</label><input type="text" id="leave-name" class="form-control bg-light" readonly placeholder="登入後自動帶入"></div>
+              <div class="col-md-6"><label class="form-label small fw-bold">姓名</label><input type="text" id="leave-name" class="form-control bg-light" readonly></div>
               <div class="col-md-6"><label class="form-label small fw-bold">假別</label>
                 <select id="leave-type" class="form-select" required>
                   <option value="事假">個人事假</option>
@@ -273,7 +271,7 @@
 
   </div>
 
-  <!-- 器材借用 Modal (支援最多 5 件) -->
+  <!-- 器材借用 Modal -->
   <div class="modal fade" id="borrowModal" tabindex="-1" aria-hidden="true">
     <div class="modal-dialog modal-dialog-centered">
       <div class="modal-content border-0 shadow-lg rounded-4">
@@ -308,26 +306,7 @@
     </div>
   </div>
 
-  <!-- 器材借用成功 Alert Modal -->
-  <div class="modal fade" id="borrowAlertModal" tabindex="-1" aria-hidden="true">
-    <div class="modal-dialog modal-dialog-centered">
-      <div class="modal-content border-0 shadow-lg rounded-4">
-        <div class="modal-header bg-success text-white"><h5 class="modal-title fw-bold">系統即時提醒：器材出借成功</h5><button type="button" class="btn-close btn-close-white" data-bs-dismiss="modal"></button></div>
-        <div class="modal-body p-4 text-center">
-          <i class="fa-solid fa-circle-check fa-4x text-success mb-3"></i>
-          <h5 class="fw-bold text-dark mb-3">已成功完成器材借用登記！</h5>
-          <div class="card p-3 bg-light text-start small mb-3">
-            <p class="mb-1"><strong>借用人：</strong><span id="popup-borrow-name">--</span></p>
-            <p class="mb-1"><strong>單位：</strong><span id="popup-borrow-class">--</span></p>
-            <p class="mb-0"><strong>器材：</strong><span id="popup-borrow-equip">--</span></p>
-          </div>
-        </div>
-        <div class="modal-footer"><button type="button" class="btn btn-secondary" data-bs-dismiss="modal">關閉</button></div>
-      </div>
-    </div>
-  </div>
-
-  <!-- 現場打卡對話框 Modal -->
+  <!-- 現場打卡 Modal -->
   <div class="modal fade" id="checkInModal" tabindex="-1" aria-hidden="true">
     <div class="modal-dialog modal-dialog-centered modal-sm">
       <div class="modal-content border-0 shadow-lg rounded-4">
@@ -372,7 +351,7 @@
     </div>
   </div>
 
-  <!-- 管理員修訂個人成長檔案 Modal -->
+  <!-- 管理員修訂成長檔案 Modal -->
   <div class="modal fade" id="portfolioModal" tabindex="-1" aria-hidden="true">
     <div class="modal-dialog modal-dialog-centered modal-lg">
       <div class="modal-content border-0 shadow-lg rounded-4">
@@ -414,13 +393,12 @@
     </div>
   </div>
 
-  <!-- 管理員實時請假單 Toast 彈窗 -->
-  <div class="position-fixed bottom-0 end-0 p-3" style="z-index: 1100">
-    <div id="leaveToast" class="toast card-modern" role="alert" aria-live="assertive" aria-atomic="true" data-bs-autohide="false">
-      <div class="toast-header bg-warning text-dark"><strong class="me-auto"><i class="fa-solid fa-bell me-1"></i>最新請假申請通知</strong><button type="button" class="btn-close" data-bs-dismiss="toast"></button></div>
-      <div class="toast-body p-3">
-        <p id="leave-toast-text" class="mb-2 small fw-bold">有人提交了請假單...</p>
-        <button id="leave-toast-btn" class="btn btn-success btn-xs w-100">前往審核</button>
+  <!-- 即時通知 Toast Container -->
+  <div class="toast-container position-fixed bottom-0 end-0 p-3" style="z-index: 1100">
+    <div id="sysToast" class="toast align-items-center text-white bg-dark border-0" role="alert" aria-live="assertive" aria-atomic="true">
+      <div class="d-flex">
+        <div class="toast-body" id="toast-msg">系統訊息</div>
+        <button type="button" class="btn-close btn-close-white me-2 m-auto" data-bs-dismiss="toast"></button>
       </div>
     </div>
   </div>
@@ -428,8 +406,8 @@
   <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.2/dist/js/bootstrap.bundle.min.js"></script>
 
   <script>
-    // ===== 1. Supabase 連線初始化 =====
-    // ⚠️ 請務必將下方填入您專案正確的 URL 與 ANON KEY
+    // ===== 1. Supabase 初始化 =====
+    // ⚠️ 請填入您的專案資訊
     const SUPABASE_URL = 'https://ogcjksialzmrsmtucalb.supabase.co';
     const SUPABASE_ANON_KEY = 'sb_publishable_qz-26TtYcNN4zGQPJA37gA_QJYKsTDW';
     
@@ -443,6 +421,15 @@
       document.getElementById('loading-mask').style.display = show ? 'flex' : 'none';
     }
 
+    function notify(msg, isSuccess = true) {
+      const toastEl = document.getElementById('sysToast');
+      toastEl.className = `toast align-items-center text-white bg-${isSuccess ? 'success' : 'danger'} border-0`;
+      document.getElementById('toast-msg').innerText = msg;
+      const toast = new bootstrap.Toast(toastEl);
+      toast.show();
+    }
+
+    // 動態導覽列與視圖切換
     function switchView(viewId) {
       document.querySelectorAll('.view-section').forEach(el => el.classList.remove('active'));
       document.getElementById(viewId).classList.add('active');
@@ -451,6 +438,21 @@
       if (viewId === 'borrow-view') loadBorrows();
       if (viewId === 'admin-panel-view') loadAdminPanel();
       if (viewId === 'leave-view') loadLeaveRequests();
+    }
+
+    function updateNavUI() {
+      const isLogin = currentUser !== null;
+      const isAdmin = isLogin && currentUser.role === 'admin';
+
+      document.getElementById('menu-login').style.display = isLogin ? 'none' : 'flex';
+      document.getElementById('menu-register').style.display = isLogin ? 'none' : 'flex';
+      document.getElementById('menu-dashboard').style.display = isLogin ? 'flex' : 'none';
+      document.getElementById('menu-duty').style.display = isLogin ? 'flex' : 'none';
+      document.getElementById('menu-leave').style.display = isLogin ? 'flex' : 'none';
+      document.getElementById('menu-admin').style.display = isAdmin ? 'flex' : 'none';
+
+      document.getElementById('user-tag').style.display = isLogin ? 'inline-block' : 'none';
+      document.getElementById('logout-btn').style.display = isLogin ? 'inline-block' : 'none';
     }
 
     // ===== 2. 用戶登入與權限管理 =====
@@ -470,40 +472,34 @@
       showLoading(false);
 
       if (error || !data) {
-        alert('學號或密碼錯誤！');
+        notify('學號或密碼錯誤！', false);
         return;
       }
 
       if (data.role === 'pending') {
-        alert('您的帳號正在等待管理員審批！');
+        notify('您的帳號正在等待管理員審批！', false);
         return;
       }
 
       currentUser = data;
       document.getElementById('user-tag').innerText = `👤 ${data.name} (${data.role === 'admin' ? '管理員' : '成員'})`;
-      document.getElementById('user-tag').style.display = 'inline-block';
-      document.getElementById('logout-btn').style.display = 'inline-block';
 
+      updateNavUI();
       renderProfile(data);
-      document.getElementById('leave-name').value = data.name;
+      notify(`歡迎登入，${data.name}！`);
 
       if (data.role === 'admin') {
-        document.getElementById('admin-panel-alert').style.display = 'none';
-        document.getElementById('admin-panel-content').style.display = 'block';
-        document.getElementById('leave-admin-section').style.display = 'block';
         switchView('admin-panel-view');
-        checkPendingLeavesForAdmin();
-        setInterval(checkPendingLeavesForAdmin, 10000);
       } else {
-        document.getElementById('member-dashboard-alert').style.display = 'none';
-        document.getElementById('member-dashboard-content').style.display = 'block';
         switchView('member-dashboard-view');
       }
     }
 
     function logout() {
       currentUser = null;
-      location.reload();
+      updateNavUI();
+      notify('已成功退出系統');
+      switchView('login-view');
     }
 
     function renderProfile(m) {
@@ -523,7 +519,6 @@
       document.getElementById('stat-late').innerText = (pf.late || 0) + ' 次';
       document.getElementById('stat-absent').innerText = (pf.absent || 0) + ' 次';
 
-      // 星級算分
       const score = (pf.learnHours || 0) + (pf.activityHours || 0);
       const stars = score >= 150 ? 5 : (score >= 100 ? 4 : (score >= 50 ? 3 : (score >= 20 ? 2 : 1)));
       let starHtml = '';
@@ -546,7 +541,7 @@
           `;
         });
       } else {
-        timeline.innerHTML = '<li class="text-muted small">暫無歷史里程碑紀錄。</li>';
+        timeline.innerHTML = '<li class="text-muted small">暫無里程碑紀錄。</li>';
       }
     }
 
@@ -590,14 +585,14 @@
       showLoading(false);
 
       if (error) {
-        alert('註冊失敗：' + error.message);
+        notify('註冊失敗：' + error.message, false);
       } else {
-        alert('註冊成功！請等待管理員審定後再行登入。');
+        notify('註冊成功！請等待管理員審定。');
         switchView('login-view');
       }
     }
 
-    // ===== 4. 活動值日與打卡/剪輯回報 =====
+    // ===== 4. 活動值日與重複打卡鎖定 =====
     async function loadDuties() {
       showLoading(true);
       const { data, error } = await supabaseClient.from('activity_duties').select('*').order('duty_date', { ascending: false });
@@ -607,9 +602,18 @@
       tbody.innerHTML = '';
       if (data && data.length > 0) {
         data.forEach(item => {
+          const checkedInUsers = item.checked_in_users || [];
+          const hasCheckedIn = currentUser && checkedInUsers.includes(currentUser.name);
+
           const isEditorMe = currentUser && currentUser.name === item.editor;
-          const editorBtn = isEditorMe 
-            ? `<button class="btn btn-xs btn-primary ms-1" onclick="handleEditorComplete('${item.activity_name}')">回報完成</button>` 
+          const editorDone = item.editor_status === 'completed';
+
+          let checkInBtn = hasCheckedIn
+            ? `<span class="badge bg-success">已簽到</span>`
+            : `<button class="btn btn-sm btn-outline-success" onclick="openCheckInModal('${item.id}', '${item.activity_name}')">打卡簽到</button>`;
+
+          let editorBtn = isEditorMe
+            ? (editorDone ? `<span class="badge bg-primary ms-1">剪輯已完工</span>` : `<button class="btn btn-xs btn-primary ms-1" onclick="handleEditorComplete('${item.id}', '${item.activity_name}')">回報完成</button>`)
             : '';
 
           tbody.innerHTML += `
@@ -619,16 +623,17 @@
               <td>${item.leader}</td>
               <td>${item.cam1}${item.cam2 ? ', ' + item.cam2 : ''}</td>
               <td>${item.editor} ${editorBtn}</td>
-              <td><button class="btn btn-sm btn-success" onclick="openCheckInModal('${item.id}', '${item.activity_name}')">打卡簽到</button></td>
+              <td>${checkInBtn}</td>
             </tr>
           `;
         });
       } else {
-        tbody.innerHTML = '<tr><td colspan="6" class="text-muted py-3">暫無最新派發之活動排班。</td></tr>';
+        tbody.innerHTML = '<tr><td colspan="6" class="text-muted py-3">暫無活動排班。</td></tr>';
       }
     }
 
     function openCheckInModal(dutyId, activityName) {
+      if (!currentUser) { notify('請先登入帳號！', false); return; }
       document.getElementById('ci-duty-id').value = dutyId;
       document.getElementById('ci-activity-name').value = activityName;
       const modal = new bootstrap.Modal(document.getElementById('checkInModal'));
@@ -637,72 +642,80 @@
 
     async function handleCheckInSubmit(e) {
       e.preventDefault();
-      if (!currentUser) { alert('請先登入帳號！'); return; }
-
       const dutyId = document.getElementById('ci-duty-id').value;
       const activityName = document.getElementById('ci-activity-name').value;
       const location = document.getElementById('ci-location').value;
 
       showLoading(true);
+
+      // 取得原本排班的打卡名單
+      const { data: dutyData } = await supabaseClient.from('activity_duties').select('checked_in_users').eq('id', dutyId).single();
+      const currentList = dutyData.checked_in_users || [];
+      if (!currentList.includes(currentUser.name)) currentList.push(currentUser.name);
+
+      await supabaseClient.from('activity_duties').update({ checked_in_users: currentList }).eq('id', dutyId);
+
+      // 更新個人檔案
       const newPortfolio = currentUser.portfolio || { learnHours: 0, activityHours: 0, milestones: [] };
       newPortfolio.activityHours = (newPortfolio.activityHours || 0) + 1;
       newPortfolio.milestones = newPortfolio.milestones || [];
       newPortfolio.milestones.unshift({
         date: new Date().toISOString().split('T')[0],
-        title: `🎥 參與現場拍攝值日簽到`,
-        desc: `於「${activityName}」擔任現場工作，崗位：${location}`
+        title: `🎥 現場拍攝值日簽到`,
+        desc: `於「${activityName}」簽到，崗位：${location}`
       });
 
-      const { error } = await supabaseClient
-        .from('members')
-        .update({ portfolio: newPortfolio })
-        .eq('student_id', currentUser.student_id);
+      await supabaseClient.from('members').update({ portfolio: newPortfolio }).eq('student_id', currentUser.student_id);
 
       showLoading(false);
       bootstrap.Modal.getInstance(document.getElementById('checkInModal')).hide();
-
-      if (!error) {
-        currentUser.portfolio = newPortfolio;
-        renderProfile(currentUser);
-        alert('現場簽到定位成功！活動次數已自動增加 1 次。');
-      }
+      currentUser.portfolio = newPortfolio;
+      renderProfile(currentUser);
+      notify('簽到定位成功！時數已更新。');
+      loadDuties();
     }
 
-    async function handleEditorComplete(activityName) {
+    async function handleEditorComplete(dutyId, activityName) {
       if (!confirm(`確定已完成「${activityName}」的剪輯工作嗎？`)) return;
 
       showLoading(true);
+      await supabaseClient.from('activity_duties').update({ editor_status: 'completed' }).eq('id', dutyId);
+
       const newPortfolio = currentUser.portfolio || { milestones: [] };
       newPortfolio.milestones = newPortfolio.milestones || [];
       newPortfolio.milestones.unshift({
         date: new Date().toISOString().split('T')[0],
         title: `🎬 完成影片剪輯工作`,
-        desc: `負責「${activityName}」後期剪輯並完成回報。`
+        desc: `「${activityName}」後期剪輯完工。`
       });
 
-      const { error } = await supabaseClient
-        .from('members')
-        .update({ portfolio: newPortfolio })
-        .eq('student_id', currentUser.student_id);
+      await supabaseClient.from('members').update({ portfolio: newPortfolio }).eq('student_id', currentUser.student_id);
 
       showLoading(false);
-      if (!error) {
-        currentUser.portfolio = newPortfolio;
-        renderProfile(currentUser);
-        alert('已成功回報剪輯完成！紀錄已寫入成長檔案。');
-      }
+      currentUser.portfolio = newPortfolio;
+      renderProfile(currentUser);
+      notify('剪輯已順利完工！');
+      loadDuties();
     }
 
-    // ===== 5. 器材借用 (多件出借) =====
+    // ===== 5. 器材借用 (自動帶入 + 防呆 + 歸還狀態) =====
     async function loadBorrows() {
       showLoading(true);
-      const { data, error } = await supabaseClient.from('equipment_borrows').select('*').order('timestamp', { ascending: false });
+      const { data } = await supabaseClient.from('equipment_borrows').select('*').order('timestamp', { ascending: false });
       showLoading(false);
 
       const tbody = document.getElementById('borrowRecordsBody');
       tbody.innerHTML = '';
       if (data) {
         data.forEach(item => {
+          const isReturned = item.status === 'returned';
+          const statusBadge = isReturned ? `<span class="badge bg-secondary">已歸還</span>` : `<span class="badge bg-warning text-dark">借用中</span>`;
+          
+          let actionBtn = '-';
+          if (!isReturned && currentUser && currentUser.role === 'admin') {
+            actionBtn = `<button class="btn btn-xs btn-success" onclick="returnEquipment('${item.id}')">確認歸還</button>`;
+          }
+
           tbody.innerHTML += `
             <tr>
               <td>${new Date(item.timestamp).toLocaleDateString()}</td>
@@ -710,8 +723,8 @@
               <td class="fw-bold text-dark">${item.name}</td>
               <td>${item.class_name}</td>
               <td>${item.equipment}</td>
-              <td>${item.borrow_date} ${item.borrow_time}</td>
-              <td>${item.duration} 小時</td>
+              <td>${statusBadge}</td>
+              <td>${actionBtn}</td>
             </tr>
           `;
         });
@@ -719,11 +732,20 @@
     }
 
     function openBorrowModal() {
+      const bName = document.getElementById('borrow-name');
+      const bClass = document.getElementById('borrow-class');
+      const bPhone = document.getElementById('borrow-phone');
+
       if (currentUser) {
-        document.getElementById('borrow-name').value = currentUser.name;
-        document.getElementById('borrow-class').value = currentUser.class_name || '內部成員';
-        document.getElementById('borrow-phone').value = currentUser.phone || '';
+        bName.value = currentUser.name; bName.readOnly = true;
+        bClass.value = currentUser.class_name || '內部成員'; bClass.readOnly = true;
+        bPhone.value = currentUser.phone || ''; bPhone.readOnly = true;
+      } else {
+        bName.value = ''; bName.readOnly = false;
+        bClass.value = ''; bClass.readOnly = false;
+        bPhone.value = ''; bPhone.readOnly = false;
       }
+
       document.getElementById('borrow-date').value = new Date().toISOString().split('T')[0];
       const modal = new bootstrap.Modal(document.getElementById('borrowModal'));
       modal.show();
@@ -731,26 +753,25 @@
 
     async function handleBorrowSubmit(e) {
       e.preventDefault();
-      const items = [];
+      const items = new Set();
       for (let i = 1; i <= 5; i++) {
         const val = document.getElementById(`borrow-eq-${i}`).value;
-        if (val) items.push(val);
+        if (val) items.add(val);
       }
 
-      const bName = document.getElementById('borrow-name').value;
-      const bClass = document.getElementById('borrow-class').value;
-      const equipStr = items.join(', ');
+      if (items.size === 0) { notify('請至少選擇 1 項器材！', false); return; }
 
       showLoading(true);
       const payload = {
         identity: currentUser ? '內部成員' : '外部訪客',
-        name: bName,
-        class_name: bClass,
+        name: document.getElementById('borrow-name').value,
+        class_name: document.getElementById('borrow-class').value,
         phone: document.getElementById('borrow-phone').value,
-        equipment: equipStr,
+        equipment: Array.from(items).join(', '),
         borrow_date: document.getElementById('borrow-date').value,
         borrow_time: document.getElementById('borrow-time').value,
-        duration: document.getElementById('borrow-duration').value
+        duration: document.getElementById('borrow-duration').value,
+        status: 'borrowed'
       };
 
       const { error } = await supabaseClient.from('equipment_borrows').insert([payload]);
@@ -758,19 +779,23 @@
 
       if (!error) {
         bootstrap.Modal.getInstance(document.getElementById('borrowModal')).hide();
-        document.getElementById('popup-borrow-name').innerText = bName;
-        document.getElementById('popup-borrow-class').innerText = bClass;
-        document.getElementById('popup-borrow-equip').innerText = equipStr;
-        const alertModal = new bootstrap.Modal(document.getElementById('borrowAlertModal'));
-        alertModal.show();
+        notify('器材出借成功！');
         loadBorrows();
       }
     }
 
-    // ===== 6. 管理員主控台與修訂 Modal =====
+    async function returnEquipment(borrowId) {
+      showLoading(true);
+      await supabaseClient.from('equipment_borrows').update({ status: 'returned' }).eq('id', borrowId);
+      showLoading(false);
+      notify('器材已成功歸還入庫！');
+      loadBorrows();
+    }
+
+    // ===== 6. 管理員控制台與權限切換 =====
     async function loadAdminPanel() {
       showLoading(true);
-      const { data, error } = await supabaseClient.from('members').select('*');
+      const { data } = await supabaseClient.from('members').select('*');
       showLoading(false);
 
       allMembersCached = data || [];
@@ -782,6 +807,10 @@
           ? `<button class="btn btn-xs btn-success me-1" onclick="approveMember('${m.student_id}')">審查通過</button>`
           : `<button class="btn btn-xs btn-primary me-1" onclick="openPortfolioModal('${m.student_id}')">修訂檔案</button>`;
 
+        let roleToggleBtn = m.role !== 'pending'
+          ? `<button class="btn btn-xs btn-outline-warning ms-1" onclick="toggleRole('${m.student_id}', '${m.role}')">設為${m.role==='admin'?'Member':'Admin'}</button>`
+          : '';
+
         tbody.innerHTML += `
           <tr>
             <td><img src="${m.photo_url || 'https://via.placeholder.com/150'}" class="table-img"></td>
@@ -790,25 +819,36 @@
             <td>${m.class_name}</td>
             <td>${m.phone}</td>
             <td><span class="badge bg-${m.role==='admin'?'danger':m.role==='member'?'success':'warning'}">${m.role}</span></td>
-            <td>${actionBtn}<button class="btn btn-xs btn-outline-danger" onclick="deleteMember('${m.student_id}')">刪除</button></td>
+            <td>${actionBtn} ${roleToggleBtn} <button class="btn btn-xs btn-outline-danger ms-1" onclick="deleteMember('${m.student_id}')">刪除</button></td>
           </tr>
         `;
       });
     }
 
+    async function toggleRole(studentId, currentRole) {
+      const targetRole = currentRole === 'admin' ? 'member' : 'admin';
+      showLoading(true);
+      await supabaseClient.from('members').update({ role: targetRole }).eq('student_id', studentId);
+      showLoading(false);
+      notify('權限切換成功！');
+      loadAdminPanel();
+    }
+
     async function approveMember(studentId) {
       showLoading(true);
-      const { error } = await supabaseClient.from('members').update({ role: 'member' }).eq('student_id', studentId);
+      await supabaseClient.from('members').update({ role: 'member' }).eq('student_id', studentId);
       showLoading(false);
-      if (!error) { alert('審核成功！'); loadAdminPanel(); }
+      notify('已通過審核！');
+      loadAdminPanel();
     }
 
     async function deleteMember(studentId) {
       if (!confirm('確定要刪除該成員嗎？')) return;
       showLoading(true);
-      const { error } = await supabaseClient.from('members').delete().eq('student_id', studentId);
+      await supabaseClient.from('members').delete().eq('student_id', studentId);
       showLoading(false);
-      if (!error) { alert('成員已刪除！'); loadAdminPanel(); }
+      notify('成員已刪除！');
+      loadAdminPanel();
     }
 
     function openDutyModal() {
@@ -832,14 +872,16 @@
         leader: document.getElementById('duty-leader').value,
         cam1: document.getElementById('duty-cam1').value,
         cam2: document.getElementById('duty-cam2').value,
-        editor: document.getElementById('duty-editor').value
+        editor: document.getElementById('duty-editor').value,
+        checked_in_users: [],
+        editor_status: 'pending'
       };
 
       const { error } = await supabaseClient.from('activity_duties').insert([payload]);
       showLoading(false);
       if (!error) {
         bootstrap.Modal.getInstance(document.getElementById('dutyModal')).hide();
-        alert('活動排班發佈成功！');
+        notify('活動排班發佈成功！');
         loadDuties();
       }
     }
@@ -950,19 +992,16 @@
       showLoading(true);
       bootstrap.Modal.getInstance(document.getElementById('portfolioModal')).hide();
 
-      const { error } = await supabaseClient
-        .from('members')
-        .update({ portfolio: updatedPortfolio })
-        .eq('student_id', studentId);
-
+      await supabaseClient.from('members').update({ portfolio: updatedPortfolio }).eq('student_id', studentId);
       showLoading(false);
-      if (!error) { alert('數據與修訂紀錄已成功同步！'); loadAdminPanel(); }
+      notify('數據已更新！');
+      loadAdminPanel();
     }
 
-    // ===== 7. 請假中心與即時 Toast 審核通知 =====
+    // ===== 7. 請假中心 =====
     async function handleLeaveSubmit(e) {
       e.preventDefault();
-      if (!currentUser) { alert('請先登入！'); return; }
+      if (!currentUser) { notify('請先登入！', false); return; }
 
       showLoading(true);
       const payload = {
@@ -977,14 +1016,14 @@
       showLoading(false);
 
       if (!error) {
-        alert('請假申請單已提交！');
+        notify('請假申請單已提交！');
         document.getElementById('leave-reason').value = '';
       }
     }
 
     async function loadLeaveRequests() {
       showLoading(true);
-      const { data, error } = await supabaseClient.from('leave_requests').select('*').order('created_at', { ascending: false });
+      const { data } = await supabaseClient.from('leave_requests').select('*').order('created_at', { ascending: false });
       showLoading(false);
 
       const tbody = document.getElementById('admin-leave-list-body');
@@ -1008,24 +1047,10 @@
 
     async function approveLeave(id) {
       showLoading(true);
-      const { error } = await supabaseClient.from('leave_requests').update({ status: 'approved' }).eq('id', id);
+      await supabaseClient.from('leave_requests').update({ status: 'approved' }).eq('id', id);
       showLoading(false);
-      if (!error) { alert('假單已成功核准！'); loadLeaveRequests(); }
-    }
-
-    async function checkPendingLeavesForAdmin() {
-      if (!currentUser || currentUser.role !== 'admin') return;
-      const { data } = await supabaseClient.from('leave_requests').select('*').eq('status', 'pending');
-      if (data && data.length > 0) {
-        const newest = data[0];
-        document.getElementById('leave-toast-text').innerText = `【新請假單】${newest.member_name} (${newest.leave_type})：${newest.reason}`;
-        document.getElementById('leave-toast-btn').onclick = function() {
-          approveLeave(newest.id);
-          bootstrap.Toast.getInstance(document.getElementById('leaveToast')).hide();
-        };
-        const toast = new bootstrap.Toast(document.getElementById('leaveToast'));
-        toast.show();
-      }
+      notify('假單已批准！');
+      loadLeaveRequests();
     }
   </script>
 </body>
