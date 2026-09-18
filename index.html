@@ -75,11 +75,11 @@
     <div class="sidebar-brand"><i class="fa-solid fa-tv me-2 text-info"></i>校園電視台</div>
     <div class="sidebar-menu">
       <a id="menu-login" onclick="switchView('login-view')" class="active"><i class="fa-solid fa-right-to-bracket"></i>帳號驗證登入</a>
-      <a id="menu-register" onclick="switchView('register-view')"><i class="fa-solid fa-user-plus"></i>新成員申請註冊</a>
+      <a id="menu-register" onclick="switchView('register-view')"><i class="fa-solid fa-user-plus"></i>新成員申請註</a>
       <a id="menu-dashboard" onclick="switchView('member-dashboard-view')" style="display:none;"><i class="fa-solid fa-chart-line"></i>個人專屬檔案</a>
-      <a id="menu-duty" onclick="switchView('duty-table-view')" style="display:none;"><i class="fa-solid fa-calendar-check"></i><span id="menu-duty-title">活動值日簽到</span></a>
-      <a id="menu-borrow" onclick="switchView('borrow-view')"><i class="fa-solid fa-toolbox"></i>器材借用綜合表</a>
-      <a id="menu-leave" onclick="switchView('leave-view')" style="display:none;"><i class="fa-solid fa-user-clock"></i><span id="menu-leave-title">成員線上請假申請</span></a>
+      <a id="menu-duty" onclick="switchView('duty-table-view')" style="display:none;"><i class="fa-solid fa-calendar-check"></i><span id="menu-duty-title">活動值日狀態</span></a>
+      <a id="menu-borrow" onclick="switchView('borrow-view')"><i class="fa-solid fa-toolbox"></i>器材借用綜合</a>
+      <a id="menu-leave" onclick="switchView('leave-view')" style="display:none;"><i class="fa-solid fa-user-clock"></i><span id="menu-leave-title">成員線上請假</span></a>
       <a id="menu-duty-admin" onclick="switchView('duty-admin-view')" style="display:none; border-top: 1px solid rgba(255,255,255,0.1);"><i class="fa-solid fa-calendar-plus"></i>開啟排班管理</a>
       <a id="menu-admin" onclick="switchView('admin-panel-view')" style="display:none;"><i class="fa-solid fa-users-gear"></i>成員資料管理</a>
     </div>
@@ -138,7 +138,7 @@
       </div>
     </div>
 
-    <!-- 3. 個人儀表板 -->
+    <!-- 3. 個人儀表板 (普通成員可見) -->
     <div id="member-dashboard-view" class="view-section">
       <div id="member-dashboard-content">
         <div class="row g-4">
@@ -173,7 +173,7 @@
       </div>
     </div>
 
-    <!-- 4. 活動值日大廳 (隊員端簽到 / 管理端顯示狀態) -->
+    <!-- 4. 活動值日大廳 (隊員簽到 vs 管理端顯示狀態) -->
     <div id="duty-table-view" class="view-section">
       <div class="card-modern p-4">
         <div class="d-flex justify-content-between align-items-center mb-4">
@@ -218,7 +218,7 @@
       </div>
     </div>
 
-    <!-- 6. 開啟排班功能 (管理員 / 高級成員) -->
+    <!-- 6. 開啟排班管理 (Admin & Senior) -->
     <div id="duty-admin-view" class="view-section">
       <div class="card-modern p-4 mb-4 d-flex justify-content-between align-items-center">
         <div>
@@ -288,6 +288,32 @@
       </div>
     </div>
 
+  </div>
+
+  <!-- 查閱註冊完整資料 Modal -->
+  <div class="modal fade" id="memberDetailModal" tabindex="-1" aria-hidden="true">
+    <div class="modal-dialog modal-dialog-centered">
+      <div class="modal-content border-0 shadow-lg rounded-4">
+        <div class="modal-header bg-info text-dark"><h5 class="modal-title fw-bold"><i class="fa-solid fa-id-card me-2"></i>成員註冊完整資料</h5><button type="button" class="btn-close" data-bs-dismiss="modal"></button></div>
+        <div class="modal-body p-4">
+          <div class="text-center mb-3">
+            <img id="detail-photo" src="" class="rounded-circle shadow" style="width:120px; height:120px; object-fit:cover;">
+          </div>
+          <table class="table table-bordered align-middle">
+            <tbody>
+              <tr><th class="bg-light" style="width:35%">學號 (帳號)</th><td id="detail-id">--</td></tr>
+              <tr><th class="bg-light">姓名</th><td id="detail-name">--</td></tr>
+              <tr><th class="bg-light">班級</th><td id="detail-class">--</td></tr>
+              <tr><th class="bg-light">個人電話</th><td id="detail-phone">--</td></tr>
+              <tr><th class="bg-light">家長姓名</th><td id="detail-pname">--</td></tr>
+              <tr><th class="bg-light">與學生關係</th><td id="detail-prel">--</td></tr>
+              <tr><th class="bg-light">家長緊急電話</th><td id="detail-pphone">--</td></tr>
+            </tbody>
+          </table>
+        </div>
+        <div class="modal-footer"><button type="button" class="btn btn-secondary" data-bs-dismiss="modal">關閉</button></div>
+      </div>
+    </div>
   </div>
 
   <!-- 器材借用 Modal -->
@@ -427,7 +453,7 @@
   <script>
     // ===== 1. Supabase 初始化 =====
     const SUPABASE_URL = 'https://ogcjksialzmrsmtucalb.supabase.co';
-    const SUPABASE_ANON_KEY = 'sb_publishable_qz-26TtYcNN4zGQPJA37gA_QJYKsTDW';
+    const SUPABASE_ANON_KEY = 'YOUR_PUBLISHABLE_KEY_HERE';
     
     const supabaseClient = supabase.createClient(SUPABASE_URL, SUPABASE_ANON_KEY);
 
@@ -467,7 +493,10 @@
 
       document.getElementById('menu-login').style.display = isLogin ? 'none' : 'flex';
       document.getElementById('menu-register').style.display = isLogin ? 'none' : 'flex';
-      document.getElementById('menu-dashboard').style.display = isLogin ? 'flex' : 'none';
+      
+      // 需求一：管理人員（Admin/Senior）隱藏「個人專屬檔案」選單
+      document.getElementById('menu-dashboard').style.display = (isLogin && !isStaff) ? 'flex' : 'none';
+      
       document.getElementById('menu-duty').style.display = isLogin ? 'flex' : 'none';
       document.getElementById('menu-leave').style.display = isLogin ? 'flex' : 'none';
       
@@ -475,13 +504,13 @@
       document.getElementById('menu-duty-admin').style.display = isStaff ? 'flex' : 'none';
       document.getElementById('menu-admin').style.display = isAdmin ? 'flex' : 'none';
 
-      // 依身分調整標題文字
-      document.getElementById('menu-duty-title').innerText = isStaff ? '活動值日狀態' : '活動值日簽到';
+      // 需求二：選單文字統一為 6 個中文字
+      document.getElementById('menu-duty-title').innerText = isStaff ? '活動值日狀態' : '活動值日狀態';
       document.getElementById('duty-title-text').innerHTML = isStaff 
         ? '<i class="fa-solid fa-list-check me-2 text-success"></i>全體隊員活動值日與打卡狀態' 
         : '<i class="fa-solid fa-list-check me-2 text-success"></i>本學期活動排班與簽到';
 
-      document.getElementById('menu-leave-title').innerText = isStaff ? '成員線上請假狀態' : '成員線上請假申請';
+      document.getElementById('menu-leave-title').innerText = isStaff ? '成員線上請假' : '成員線上請假';
 
       document.getElementById('user-tag').style.display = isLogin ? 'inline-block' : 'none';
       document.getElementById('logout-btn').style.display = isLogin ? 'inline-block' : 'none';
@@ -636,7 +665,7 @@
       }
     }
 
-    // ===== 4. 活動值日大廳 (隊員簽到 vs 管理端顯示狀態) =====
+    // ===== 4. 活動值日大廳 =====
     async function loadDuties() {
       showLoading(true);
       const { data } = await supabaseClient.from('activity_duties').select('*').order('duty_date', { ascending: false });
@@ -656,12 +685,10 @@
 
           let statusCol = '';
           if (isStaff) {
-            // 管理端：顯示狀態
             const ciCount = checkedInUsers.length;
             const edStatus = editorDone ? '<span class="badge bg-primary">剪輯完成</span>' : '<span class="badge bg-secondary">剪輯中</span>';
             statusCol = `<span class="badge bg-info text-dark">已簽到 (${ciCount}人)</span> ${edStatus}`;
           } else {
-            // 隊員端：提供簽到與回報按鈕
             let checkInBtn = hasCheckedIn
               ? `<span class="badge bg-success">已簽到</span>`
               : `<button class="btn btn-sm btn-outline-success" onclick="openCheckInModal('${item.id}', '${item.activity_name}')">打卡簽到</button>`;
@@ -919,7 +946,7 @@
       loadDutyAdminView();
     }
 
-    // ===== 7. 成員資料管理 (僅限 Admin，含修復照片顯示與權限切換) =====
+    // ===== 7. 成員資料管理 (僅限 Admin) =====
     async function loadAdminPanel() {
       showLoading(true);
       const { data } = await supabaseClient.from('members').select('*');
@@ -934,8 +961,11 @@
           ? `<button class="btn btn-xs btn-success me-1" onclick="approveMember('${m.student_id}')">審查通過</button>`
           : `<button class="btn btn-xs btn-primary me-1" onclick="openPortfolioModal('${m.student_id}')">修訂檔案</button>`;
 
-        // 修復照片顯示邏輯：若沒照片顯示預設頭像，並增加 onerror 容錯
-        const photoSrc = (m.photo_url && m.photo_url.startsWith('http')) ? m.photo_url : 'https://via.placeholder.com/150';
+        // 需求三：加入按鈕能查閱成員註冊時的所有資料
+        let detailBtn = `<button class="btn btn-xs btn-info text-dark me-1" onclick="openMemberDetailModal('${m.student_id}')">完整資料</button>`;
+
+        // 需求四：照片顯示修復邏輯
+        const photoSrc = (m.photo_url && m.photo_url.trim() !== '') ? m.photo_url : 'https://via.placeholder.com/150';
 
         tbody.innerHTML += `
           <tr>
@@ -952,10 +982,29 @@
                 <option value="admin" ${m.role==='admin'?'selected':''}>Admin (管理員)</option>
               </select>
             </td>
-            <td>${actionBtn} <button class="btn btn-xs btn-outline-danger ms-1" onclick="deleteMember('${m.student_id}')">刪除</button></td>
+            <td>${detailBtn} ${actionBtn} <button class="btn btn-xs btn-outline-danger ms-1" onclick="deleteMember('${m.student_id}')">刪除</button></td>
           </tr>
         `;
       });
+    }
+
+    // 查閱成員註冊完整資料 Modal 邏輯
+    function openMemberDetailModal(studentId) {
+      const member = allMembersCached.find(m => m.student_id === studentId);
+      if (!member) return;
+
+      const photoSrc = (member.photo_url && member.photo_url.trim() !== '') ? member.photo_url : 'https://via.placeholder.com/150';
+      document.getElementById('detail-photo').src = photoSrc;
+      document.getElementById('detail-id').innerText = member.student_id || '-';
+      document.getElementById('detail-name').innerText = member.name || '-';
+      document.getElementById('detail-class').innerText = member.class_name || '-';
+      document.getElementById('detail-phone').innerText = member.phone || '-';
+      document.getElementById('detail-pname').innerText = member.parent_name || '-';
+      document.getElementById('detail-prel').innerText = member.relationship || '-';
+      document.getElementById('detail-pphone').innerText = member.parent_phone || '-';
+
+      const modal = new bootstrap.Modal(document.getElementById('memberDetailModal'));
+      modal.show();
     }
 
     async function changeMemberRole(studentId, newRole) {
@@ -1095,7 +1144,7 @@
       loadAdminPanel();
     }
 
-    // ===== 8. 請假中心 (隊員端申請 vs 管理端審核與狀態) =====
+    // ===== 8. 請假中心 =====
     async function handleLeaveSubmit(e) {
       e.preventDefault();
       if (!currentUser) { notify('請先登入！', false); return; }
