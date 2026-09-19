@@ -138,7 +138,7 @@
       </div>
     </div>
 
-    <!-- 3. 個人儀表板 (普通成員可見) -->
+    <!-- 3. 個人儀表板 (成員/高級成員均可見) -->
     <div id="member-dashboard-view" class="view-section">
       <div id="member-dashboard-content">
         <div class="row g-4">
@@ -218,7 +218,7 @@
       </div>
     </div>
 
-    <!-- 6. 開啟排班管理 (Admin & Senior) -->
+    <!-- 6. 開啟排班管理 (Admin & Senior 均可使用) -->
     <div id="duty-admin-view" class="view-section">
       <div class="card-modern p-4 mb-4 d-flex justify-content-between align-items-center">
         <div>
@@ -257,7 +257,7 @@
       </div>
     </div>
 
-    <!-- 8. 請假中心 (隊員申請 / 管理員顯示狀態) -->
+    <!-- 8. 請假中心 -->
     <div id="leave-view" class="view-section">
       <div class="card-modern p-4 p-md-5">
         <div id="leave-apply-section">
@@ -489,22 +489,24 @@
       const isLogin = currentUser !== null;
       const isAdmin = isLogin && currentUser.role === 'admin';
       const isSenior = isLogin && currentUser.role === 'senior';
-      const isStaff = isAdmin || isSenior; // 管理員或高級成員
+      const isStaff = isAdmin || isSenior;
 
       document.getElementById('menu-login').style.display = isLogin ? 'none' : 'flex';
       document.getElementById('menu-register').style.display = isLogin ? 'none' : 'flex';
       
-      // 需求一：管理人員（Admin/Senior）隱藏「個人專屬檔案」選單
-      document.getElementById('menu-dashboard').style.display = (isLogin && !isStaff) ? 'flex' : 'none';
+      // 高級成員與一般成員均能看到「個人專屬檔案」（僅 Admin 隱藏）
+      document.getElementById('menu-dashboard').style.display = (isLogin && !isAdmin) ? 'flex' : 'none';
       
       document.getElementById('menu-duty').style.display = isLogin ? 'flex' : 'none';
       document.getElementById('menu-leave').style.display = isLogin ? 'flex' : 'none';
       
-      // 獨立權限拆分
+      // 高級成員與管理員額外擁有「開啟排班管理」權限
       document.getElementById('menu-duty-admin').style.display = isStaff ? 'flex' : 'none';
+      
+      // 只有 Admin 能看到「成員資料管理」
       document.getElementById('menu-admin').style.display = isAdmin ? 'flex' : 'none';
 
-      // 需求二：選單文字統一為 6 個中文字
+      // 6字選單標題統一與介面調整
       document.getElementById('menu-duty-title').innerText = isStaff ? '活動值日狀態' : '活動值日狀態';
       document.getElementById('duty-title-text').innerHTML = isStaff 
         ? '<i class="fa-solid fa-list-check me-2 text-success"></i>全體隊員活動值日與打卡狀態' 
@@ -515,7 +517,7 @@
       document.getElementById('user-tag').style.display = isLogin ? 'inline-block' : 'none';
       document.getElementById('logout-btn').style.display = isLogin ? 'inline-block' : 'none';
 
-      // 請假中心內部區塊切換
+      // 請假中心介面切換 (管理端 vs 隊員端)
       if (isStaff) {
         document.getElementById('leave-apply-section').style.display = 'none';
         document.getElementById('leave-admin-section').style.display = 'block';
@@ -561,9 +563,8 @@
 
       if (data.role === 'admin') {
         switchView('admin-panel-view');
-      } else if (data.role === 'senior') {
-        switchView('duty-admin-view');
       } else {
+        // 高級成員與一般成員預設登入至個人檔案
         switchView('member-dashboard-view');
       }
     }
@@ -961,10 +962,7 @@
           ? `<button class="btn btn-xs btn-success me-1" onclick="approveMember('${m.student_id}')">審查通過</button>`
           : `<button class="btn btn-xs btn-primary me-1" onclick="openPortfolioModal('${m.student_id}')">修訂檔案</button>`;
 
-        // 需求三：加入按鈕能查閱成員註冊時的所有資料
         let detailBtn = `<button class="btn btn-xs btn-info text-dark me-1" onclick="openMemberDetailModal('${m.student_id}')">完整資料</button>`;
-
-        // 需求四：照片顯示修復邏輯
         const photoSrc = (m.photo_url && m.photo_url.trim() !== '') ? m.photo_url : 'https://via.placeholder.com/150';
 
         tbody.innerHTML += `
@@ -988,7 +986,6 @@
       });
     }
 
-    // 查閱成員註冊完整資料 Modal 邏輯
     function openMemberDetailModal(studentId) {
       const member = allMembersCached.find(m => m.student_id === studentId);
       if (!member) return;
